@@ -13,7 +13,8 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from esm.support.util_functions import *
+from esm.support.util_constants import *
+from esm.support.util_operators import *
 
 
 def test_tril():

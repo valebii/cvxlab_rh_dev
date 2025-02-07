@@ -14,7 +14,8 @@ Constants class, accessible through the 'get' getter method.
 """
 import cvxpy as cp
 import numpy as np
-from esm.support import util_functions
+
+from esm.support import util_constants, util_operators
 
 
 class Constants:
@@ -165,10 +166,10 @@ class Constants:
             'sum_vector': (np.ones, {}),
             'identity': (np.eye, {}),
             'set_length': (np.size, {}),
-            'arange_1': (util_functions.arange, {}),
-            'arange_0': (util_functions.arange, {'start_from': 0}),
-            'lower_triangular': (util_functions.tril, {}),
-            'identity_rcot': (util_functions.identity_rcot, {}),
+            'arange_1': (util_constants.arange, {}),
+            'arange_0': (util_constants.arange, {'start_from': 0}),
+            'lower_triangular': (util_constants.tril, {}),
+            'identity_rcot': (util_constants.identity_rcot, {}),
         }
         ALLOWED_OPERATORS = {
             '+': '+',
@@ -185,10 +186,10 @@ class Constants:
             'diag': cp.diag,
             'sum': cp.sum,
             'mult': cp.multiply,
-            'shift': util_functions.shift,
-            'pow': util_functions.power,
-            'minv': util_functions.matrix_inverse,
-            'weib': util_functions.weibull_distribution,
+            'shift': util_operators.shift,
+            'pow': util_operators.power,
+            'minv': util_operators.matrix_inverse,
+            'weib': util_operators.weibull_distribution,
             'Minimize': cp.Minimize,
             'Maximize': cp.Maximize,
         }
