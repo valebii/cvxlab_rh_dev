@@ -11,6 +11,7 @@ inverses.
 """
 
 from typing import Tuple
+from cvxpy.interface import is_vector
 import numpy as np
 import cvxpy as cp
 
@@ -113,9 +114,9 @@ def matrix_inverse(matrix: cp.Parameter | cp.Expression) -> cp.Parameter:
 
 
 def shift(
-        dimension: Tuple[int],
-        shift_value: int,
-) -> np.array:
+        set_length: cp.Constant,
+        shift_value: cp.Parameter,
+) -> cp.Parameter:
     """
     Generate a square matrix of specified dimension, with all zeros except a
     diagonal of ones that is shifted with respect to the main diagonal by a 
@@ -125,7 +126,7 @@ def shift(
 
     Parameters:
         dimension (Tuple[int]): The dimension of the matrix row/col.
-        shift_value (int): The number of positions to shift the diagonal.
+        shift_value (int): (scalar) the number of positions to shift the diagonal.
 
     Returns:
         np.ndarray: A square matrix with a diagonal of ones downward shifted by 
@@ -135,33 +136,48 @@ def shift(
         ValueError: If passed dimension is not greater than zero.
         TypeError: If passed dimension is not an iterable containing integers.
     """
-
-    if not isinstance(dimension, Tuple) and not \
-            all(isinstance(i, int) for i in dimension):
+    if not isinstance(set_length, cp.Constant) or \
+            not isinstance(shift_value, cp.Parameter):
         raise TypeError(
-            "Passed dimension must be a tuple containing integers.")
+            "Passed set_length must be a cvxpy Constant, "
+            "shift_value must be a cvxpy Parameter.")
 
-    if not isinstance(shift_value, int):
-        raise TypeError("Shift value must be an integer.")
+    # extract values from cvxpy parameters
+    set_length: np.ndarray = set_length.value
+    shift_value: np.ndarray = shift_value.value
 
-    if any(i < 0 for i in dimension):
+    # checks
+    if set_length is None or shift_value is None:
         raise ValueError(
-            "Passed dimension must be integers greater than zero.")
+            "Values assigned to set_length and shift_value cannot be None.")
 
-    if len(dimension) != 2 or not any(i == 1 for i in dimension):
-        raise ValueError(
-            "Passed dimension must have at least one element equal to 1 (it "
-            "must represent a vector.")
+    if not isinstance(set_length, np.ndarray) or \
+            not isinstance(shift_value, np.ndarray):
+        raise TypeError(
+            "Values Set length and shift value must be numpy arrays.")
 
-    size = max(dimension)
+    err_msg = []
 
-    if abs(shift_value) >= size:
-        raise ValueError(
-            "Absolute value of shift_value must be less than the matrix order.")
+    # WARNING: set_length e shift_value devono essere scalari
+    if not set_length.size == 1:
+        err_msg.append(
+            "Set length must be a scalar. "
+            f"Passed dimension: '{set_length.shape}'.")
 
-    matrix = np.eye(size, k=-shift_value)
+    if not shift_value.size == 1:
+        err_msg.append(
+            "Shift value must be a scalar. "
+            f"Passed dimension: '{shift_value.shape}'.")
 
-    return matrix
+    if err_msg:
+        raise ValueError("\n".join(err_msg))
+
+    # define shift_matrix
+    sl: int = int(set_length[0, 0])
+    sv: int = int(shift_value[0, 0])
+    matrix = np.eye(N=sl, k=-sv)
+
+    return cp.Parameter(shape=(sl, sl), value=matrix)
 
 
 def weibull_distribution(
