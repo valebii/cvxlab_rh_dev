@@ -10,8 +10,7 @@ such as generating special matrices, reshaping arrays, and calculating matrix
 inverses.
 """
 
-from typing import Tuple
-from cvxpy.interface import is_vector
+from typing import Optional
 import numpy as np
 import cvxpy as cp
 
@@ -158,7 +157,7 @@ def shift(
 
     err_msg = []
 
-    # WARNING: set_length e shift_value devono essere scalari
+    # WARNING: set_length and shift_value must be scalars
     if not set_length.size == 1:
         err_msg.append(
             "Set length must be a scalar. "
@@ -178,6 +177,89 @@ def shift(
     matrix = np.eye(N=sl, k=-sv)
 
     return cp.Parameter(shape=(sl, sl), value=matrix)
+
+
+def annuity(
+        period_length: cp.Parameter,
+        tech_lifetime: cp.Parameter,
+        interest_rate: Optional[cp.Parameter] = None,
+) -> cp.Parameter:
+    """ 
+    Calculate the annuity factor for a given period length, lifetime, and
+    interest rate. The annuity factor is used to calculate the present value of
+    an annuity, which is a series of equal payments made at regular intervals.
+
+    Parameters:
+        period_length (cp.Parameter): The length of the period for which the
+            annuity factor is calculated.
+            lifetime (cp.Parameter): The total number of periods over which the
+            annuity is paid.
+            interest_rate (cp.Parameter): The interest rate used to discount the
+            annuity payments.
+
+    Returns:
+        cp.Parameter: The annuity factor calculated based on the input parameters.
+    """
+    if not isinstance(period_length, cp.Parameter) or \
+            not isinstance(tech_lifetime, cp.Parameter):
+        raise TypeError(
+            "Period length and lifetime must be cvxpy Parameters.")
+
+    if interest_rate is not None and not isinstance(interest_rate, cp.Parameter):
+        raise TypeError("Interest rate must be a cvxpy Parameter.")
+
+    # extract and check values from period_length and lifetime cvxpy parameters
+    pl: np.ndarray = period_length.value
+    lt: np.ndarray = tech_lifetime.value
+
+    if pl is None or lt is None:
+        raise ValueError(
+            "Values assigned to period_length and lifetime cannot be None.")
+
+    if not len(pl) == 1:
+        raise ValueError(
+            f"Period length must be a scalar. Passed shape: '{pl.shape}'.")
+
+    if not len(lt) == 1:
+        raise ValueError(
+            f"Lifetime must be a scalar. Passed dimension: '{len(lt)}'.")
+
+    pl = pl[0][0]
+    lt = lt[0][0]
+
+    # extract and check values from interest_rate cvxpy parameter
+    if interest_rate is not None:
+        ir: np.ndarray = interest_rate.value
+    else:
+        ir: np.ndarray = np.zeros([1, pl])
+
+    if not 1 in ir.shape:
+        raise ValueError(
+            f"Interest rate must be a vector. Passed dimension: '{len(ir)}'.")
+
+    if ir.size != pl:
+        raise ValueError(
+            "Interest rate vector must have size equal to period length."
+            f"Passed interest rate size: '{ir.size}'; period length: '{pl}'.")
+
+    if ir.shape[0] != 1:
+        ir = ir.T
+
+    # calculate annuity matrix
+    annuity = np.zeros((pl, pl))
+
+    for row in range(pl):
+        for col in range(pl):
+            if col > row:
+                continue
+            elif (row - col) < lt:
+                if ir[0, col] == 0:
+                    annuity[row, col] = 1/lt
+                else:
+                    _ir = ir[0, col]
+                    annuity[row, col] = _ir*(1 + _ir)**lt / ((1 + _ir)**lt - 1)
+
+    return cp.Parameter(shape=(pl, pl), value=annuity)
 
 
 def weibull_distribution(
