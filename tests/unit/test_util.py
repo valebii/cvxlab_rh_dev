@@ -835,7 +835,7 @@ def test_pivot_dataframe_to_data_structure():
             'table_key': ['x', 'a', 'product_data', 'product_data', 'product_data', 'b'],
             'description': [
                 'products supply',
-                'energy_use',
+                'energy use',
                 'product data',
                 'product data',
                 'product data',
@@ -878,7 +878,16 @@ def test_pivot_dataframe_to_data_structure():
                 None,
             ],
         },
-        'problem_structure': {},
+        'problem_structure': {
+            'problem_key': [1, 1, 1, 2],
+            'objective': ['Maximize(c @ tran(x))', None, None, None],
+            'expressions': [
+                None,
+                "a @ tran(x) - b <= 0",
+                "x >= 0",
+                "a - a_0 - lr @ diag(x) == 0",
+            ],
+        },
     }
 
     parameters = {
@@ -906,7 +915,7 @@ def test_pivot_dataframe_to_data_structure():
         'data_table_structure': {
             'x': {
                 'description': 'products supply',
-                'type': "{1: 'endogenous', 2: 'exogenous'}",
+                'type': {1: 'endogenous', 2: 'exogenous'},
                 'coordinates': ['resources', 'products'],
                 'variables_info': {'x': {'products': {'dim': 'cols'}}}
             },
@@ -916,7 +925,7 @@ def test_pivot_dataframe_to_data_structure():
                 'coordinates': ['resources', 'products'],
                 'variables_info': {'a': {'products': {'dim': 'cols'}}}
             },
-            'c': {
+            'product_data': {
                 'description': 'product data',
                 'type': 'exogenous',
                 'coordinates': ['products', 'product_data'],
@@ -938,11 +947,22 @@ def test_pivot_dataframe_to_data_structure():
             'b': {
                 'description': 'energy availability',
                 'type': 'exogenous',
-                'coordinates': ['resources'],
+                'coordinates': 'resources',
                 'variables_info': {'b': {}},
             },
         },
-        'problem_structure': {}
+        'problem_structure': {
+            1: {
+                'objective': ['Maximize(c @ tran(x))'],
+                'expressions': [
+                    'a @ tran(x) - b <= 0',
+                    'x >= 0',
+                ],
+            },
+            2: {
+                'expressions': ['a - a_0 - lr @ diag(x) == 0'],
+            },
+        },
     }
 
     for key, value in data.items():
