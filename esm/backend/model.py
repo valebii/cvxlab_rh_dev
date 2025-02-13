@@ -327,6 +327,7 @@ class Model:
     def load_exogenous_data_to_sqlite_database(
             self,
             force_overwrite: bool = False,
+            table_key_list: list[str] = None,
     ) -> None:
         """
         Loads input (exogenous) data to the SQLite database. 
@@ -340,6 +341,7 @@ class Model:
         self.core.database.load_data_input_files_to_database(
             force_overwrite=force_overwrite,
             empty_data_fill=Constants.NumericalSettings.DB_EMPTY_DATA_FILL,
+            table_key_list=table_key_list,
         )
 
     def initialize_problems(

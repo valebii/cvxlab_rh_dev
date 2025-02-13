@@ -449,6 +449,7 @@ class Database:
         empty_data_fill: Optional[Any] = None,
         file_extension: str = Constants.ConfigFiles.DATA_FILES_EXTENSION,
         force_overwrite: bool = False,
+        table_key_list: list[str] = None,
     ) -> None:
         """
         Loads data from user-filled input files into the SQLite database.
@@ -482,8 +483,15 @@ class Database:
         if self.settings['multiple_input_files']:
             data = {}
 
+            if table_key_list is None:
+                table_key_list = self.index.data.keys()
+
             with db_handler(self.sqltools):
                 for table_key, table in self.index.data.items():
+                    table: DataTable
+
+                    if table_key not in table_key_list:
+                        continue
 
                     if table.type not in ['endogenous', 'constant']:
                         file_name = table_key + file_extension
