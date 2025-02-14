@@ -327,7 +327,7 @@ class Model:
     def load_exogenous_data_to_sqlite_database(
             self,
             force_overwrite: bool = False,
-            table_key_list: list[str] = None,
+            table_key_list: list[str] = [],
     ) -> None:
         """
         Loads input (exogenous) data to the SQLite database. 

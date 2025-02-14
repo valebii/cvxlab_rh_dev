@@ -449,7 +449,7 @@ class Database:
         empty_data_fill: Optional[Any] = None,
         file_extension: str = Constants.ConfigFiles.DATA_FILES_EXTENSION,
         force_overwrite: bool = False,
-        table_key_list: list[str] = None,
+        table_key_list: list[str] = [],
     ) -> None:
         """
         Loads data from user-filled input files into the SQLite database.
@@ -483,8 +483,16 @@ class Database:
         if self.settings['multiple_input_files']:
             data = {}
 
-            if table_key_list is None:
+            if table_key_list is []:
                 table_key_list = self.index.data.keys()
+            else:
+                if not util.items_in_list(
+                    table_key_list,
+                    self.index.data.keys()
+                ):
+                    msg = "One or more passed tables keys not present in the index."
+                    self.logger.error(msg)
+                    raise ValueError(msg)
 
             with db_handler(self.sqltools):
                 for table_key, table in self.index.data.items():
