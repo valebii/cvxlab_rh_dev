@@ -679,11 +679,14 @@ class FileManager:
             merge_dict = True if \
                 structure_key == Constants.ConfigFiles.SETUP_INFO[2] else False
 
+            skip_process_str = True if structure_key == 'problem' else False
+
             data = util.pivot_dataframe_to_data_structure(
                 data=raw_data,
                 primary_key=data_pivot_keys[structure_key][0],
                 secondary_key=data_pivot_keys[structure_key][1],
                 merge_dict=merge_dict,
+                skip_process_str=skip_process_str,
             )
 
         else:

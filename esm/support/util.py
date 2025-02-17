@@ -944,6 +944,7 @@ def pivot_dataframe_to_data_structure(
     primary_key: Optional[str | int] = None,
     secondary_key: Optional[str | int] = None,
     merge_dict: bool = False,
+    skip_process_str: bool = False,
 ) -> dict:
 
     data_structure = {}
@@ -969,7 +970,10 @@ def pivot_dataframe_to_data_structure(
 
             value = row[column]
             if value:
-                inner_dict[column] = util_text.process_str(value)
+                if not skip_process_str:
+                    inner_dict[column] = util_text.process_str(value)
+                else:
+                    inner_dict[column] = value
 
         if merge_dict:
             data_structure[key] = merge_dicts(

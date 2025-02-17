@@ -483,7 +483,7 @@ class Database:
         if self.settings['multiple_input_files']:
             data = {}
 
-            if table_key_list is []:
+            if table_key_list == []:
                 table_key_list = self.index.data.keys()
             else:
                 if not util.items_in_list(
