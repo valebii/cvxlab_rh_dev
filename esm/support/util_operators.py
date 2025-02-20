@@ -180,7 +180,7 @@ def shift(
 
 
 def annuity(
-        period_length: cp.Parameter,
+        period_length: cp.Parameter | cp.Constant,
         tech_lifetime: cp.Parameter,
         interest_rate: Optional[cp.Parameter] = None,
 ) -> cp.Parameter:
@@ -200,7 +200,7 @@ def annuity(
     Returns:
         cp.Parameter: The annuity factor calculated based on the input parameters.
     """
-    if not isinstance(period_length, cp.Parameter) or \
+    if not isinstance(period_length, (cp.Parameter, cp.Constant)) or \
             not isinstance(tech_lifetime, cp.Parameter):
         raise TypeError(
             "Period length and lifetime must be cvxpy Parameters.")
@@ -224,8 +224,8 @@ def annuity(
         raise ValueError(
             f"Lifetime must be a scalar. Passed dimension: '{len(lt)}'.")
 
-    pl = pl[0][0]
-    lt = lt[0][0]
+    pl = int(pl[0][0])
+    lt = int(lt[0][0])
 
     # extract and check values from interest_rate cvxpy parameter
     if interest_rate is not None:

@@ -190,6 +190,7 @@ class Constants:
             'pow': util_operators.power,
             'minv': util_operators.matrix_inverse,
             'weib': util_operators.weibull_distribution,
+            'annuity': util_operators.annuity,
             'Minimize': cp.Minimize,
             'Maximize': cp.Maximize,
         }
