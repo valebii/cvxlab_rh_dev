@@ -653,6 +653,7 @@ class Problem:
             self.symbolic_problem = DotDict(data)
 
         elif util.find_dict_depth(data) == 2:
+            self.symbolic_problem = {}
             for key, problem in data.items():
                 self.symbolic_problem[key] = DotDict(problem)
 
@@ -1356,6 +1357,7 @@ class Problem:
 
         for expression in symbolic_expressions:
 
+            self.logger.debug(f"Defining expression: '{expression}'")
             cvxpy_expression = None
 
             vars_symbols_list = self.parse_allowed_symbolic_vars(expression)
