@@ -131,6 +131,24 @@ class Index:
         return list(self.data.keys()) if self.sets else []
 
     @property
+    def list_exogenous_data_tables(self) -> List[str]:
+        """
+        Returns a list of all data table identifiers currently loaded in the index
+        that are marked as not endogenous. Returns an empty list if no exogenous data
+        tables are loaded.
+
+        Returns:
+            List[str]: List of exogenous data table identifiers.
+        """
+        endogenous_type = Constants.SymbolicDefinitions.ALLOWED_VARIABLES_TYPES[2]
+        constant_type = Constants.SymbolicDefinitions.ALLOWED_VARIABLES_TYPES[0]
+
+        return [
+            key for key, data_table in self.data.items()
+            if data_table.type not in [endogenous_type, constant_type]
+        ]
+
+    @property
     def list_all_tables(self) -> List[str]:
         """
         Returns a list of all table identifiers currently loaded in the index.
