@@ -131,6 +131,17 @@ class Index:
         return list(self.data.keys()) if self.sets else []
 
     @property
+    def list_all_tables(self) -> List[str]:
+        """
+        Returns a list of all table identifiers currently loaded in the index.
+        Returns an empty list if no tables are loaded.
+
+        Returns:
+            List[str]: List of table identifiers.
+        """
+        return [*self.list_sets, *self.list_data_tables]
+
+    @property
     def list_variables(self) -> List[str]:
         """
         Returns a list of all variable identifiers currently loaded in the index.
