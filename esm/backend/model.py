@@ -35,6 +35,7 @@ from esm.log_exc import exceptions as exc
 from esm.log_exc.logger import Logger
 from esm.support.dotdict import DotDict
 from esm.support.file_manager import FileManager
+from esm.support import util
 
 
 class Model:
@@ -90,7 +91,7 @@ class Model:
             self,
             model_dir_name: str,
             main_dir_path: str,
-            model_settings_from: Literal['yml', 'xlsx'] = 'yml',
+            model_settings_from: Literal['yml', 'xlsx'] = 'xlsx',
             use_existing_data: bool = False,
             multiple_input_files: bool = False,
             log_level: Literal['info', 'debug', 'warning', 'error'] = 'info',
@@ -323,6 +324,38 @@ class Model:
             self.core.database.generate_blank_data_input_files()
         else:
             self.logger.info("Relying on existing input data directory.")
+
+    def generate_input_data_files(
+            self,
+            table_key_list: List[str] = [],
+    ) -> None:
+        """
+        Generates only one or more input data files for the model.
+        """
+        input_files_dir_path = Path(self.paths['input_data_dir'])
+
+        if not input_files_dir_path.exists():
+            msg = "Input data directory missing. Initialize blank data " \
+                "structure first."
+            self.logger.error(msg)
+            raise exc.SettingsError(msg)
+
+        if table_key_list != [] and not util.items_in_list(
+            table_key_list,
+            self.core.index.list_exogenous_data_tables
+        ):
+            msg = "Invalid table key/s provided. Only exogenous data tables " \
+                "can be exported to input data files."
+            self.logger.error(msg)
+            raise exc.SettingsError(msg)
+
+        if table_key_list != []:
+            self.logger.info(
+                f"Generating input data files for tables: '{table_key_list}'.")
+        else:
+            self.logger.info("Generating all input data files.")
+
+        self.core.database.generate_blank_data_input_files(table_key_list)
 
     def load_exogenous_data_to_sqlite_database(
             self,

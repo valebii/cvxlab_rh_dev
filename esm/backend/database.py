@@ -398,6 +398,7 @@ class Database:
 
     def generate_blank_data_input_files(
         self,
+        table_key_list: List[str] = [],
         file_extension: str = Constants.ConfigFiles.DATA_FILES_EXTENSION,
     ) -> None:
         """
@@ -430,6 +431,9 @@ class Database:
         with db_handler(self.sqltools):
             for table_key, table in self.index.data.items():
 
+                if table_key_list != [] and table_key not in table_key_list:
+                    continue
+
                 if table.type in ['endogenous', 'constant']:
                     continue
 
@@ -442,6 +446,7 @@ class Database:
                     excel_filename=output_file_name,
                     excel_dir_path=self.paths['input_data_dir'],
                     table_name=table_key,
+                    blank_value_field=True
                 )
 
     def load_data_input_files_to_database(
