@@ -764,6 +764,7 @@ class SQLManager:
             excel_filename: str,
             excel_dir_path: Path | str,
             table_name: str,
+            blank_value_field: bool = False,
     ) -> None:
         """
         Exports the data from a specified SQLite table to an Excel file using
@@ -810,6 +811,12 @@ class SQLManager:
 
             query = f'SELECT * FROM {table_name}'
             df = pd.read_sql_query(query, self.connection)
+
+            if blank_value_field:
+                values_column = Constants.Labels.VALUES_FIELD['values'][0]
+                if values_column in df.columns:
+                    df[values_column] = None
+
             df.to_excel(writer, sheet_name=table_name, index=False)
 
     def table_to_dataframe(
@@ -1217,7 +1224,7 @@ class SQLManager:
             other_db_connection.close()
 
 
-@ contextlib.contextmanager
+@contextlib.contextmanager
 def db_handler(sql_manager: SQLManager):
     """
     A context manager for handling database connections and providing a cursor
