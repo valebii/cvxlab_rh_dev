@@ -1221,7 +1221,8 @@ class SQLManager:
             return max_relative_difference
 
         finally:
-            other_db_connection.close()
+            del other_db_connection
+            del other_db_cursor
 
 
 @contextlib.contextmanager

@@ -1,8 +1,10 @@
+import dill
 import pandas as pd
 
 from pathlib import Path
 from typing import Literal
 
+from esm.backend.model import Model
 from esm.constants import Constants
 from esm.log_exc.logger import Logger
 from esm.support import util
@@ -244,3 +246,82 @@ def transfer_setup_info_xlsx(
                 sheet_name=tab,
                 force_overwrite=True,
             )
+
+
+def save_model_instance(
+        instance: Model,
+        file_name: str,
+) -> None:
+
+    if not isinstance(instance, Model):
+        raise ValueError(
+            "Invalid model instance. Must be a valid 'Model' instance.")
+
+    files = FileManager(Logger())
+    model_dir_path = instance.paths['model_dir']
+    model_name = instance.settings['model_name']
+
+    instances_dir = Constants.ConfigFiles.INSTANCES_DIR
+    instances_save_path = Path(model_dir_path) / instances_dir
+    file_name = f"{file_name}.pkl"
+    instance_file_path = instances_save_path / file_name
+
+    if not instances_save_path.exists():
+        files.create_dir(instances_save_path)
+
+    files.logger.info(
+        f"Saving model instance '{model_name}' as '{file_name}' in "
+        f"'{instances_save_path}'.")
+
+    erased_instance = True
+
+    if instance_file_path.exists():
+        files.logger.info(f"File '{file_name}' already exists.")
+
+        erased_instance = files.erase_file(
+            dir_path=instances_save_path,
+            file_name=file_name,
+            force_erase=False,
+            confirm=True,
+        )
+
+    if erased_instance:
+        # cleaning up non-serializable attributes
+        instance.core.sqltools.connection = None
+        instance.core.sqltools.cursor = None
+
+        with open(instance_file_path, 'wb') as file:
+            dill.dump(instance, file)
+
+        files.logger.info(
+            f"Model instance '{file_name}' saved.")
+
+    else:
+        files.logger.info(
+            f"Model instance '{file_name}' NOT overwritten.")
+
+
+def load_model_instance(
+        file_name: str,
+        source_dir_path: str | Path,
+) -> Model:
+
+    files = FileManager(Logger())
+    file_name = f"{file_name}.pkl"
+    file_path = Path(source_dir_path) / file_name
+
+    if not file_path.exists():
+        msg = f"File '{file_name}' not found."
+        files.logger.error(msg)
+        raise FileNotFoundError(msg)
+
+    files.logger.info(
+        f"Loading model instance from '{file_name}' in '{source_dir_path}'.")
+
+    try:
+        with open(file_path, 'rb') as file:
+            model_instance = dill.load(file)
+            return model_instance
+    except Exception as e:
+        files.logger.error(f"Error loading model instance '{file_name}': {e}")
+        raise e

@@ -19,6 +19,8 @@ from esm.backend.model import Model
 from esm.support.model_directory import (
     create_model_dir,
     transfer_setup_info_xlsx,
+    save_model_instance,
+    load_model_instance,
 )
 
 __authors__ = " 'Matteo V. Rocco', "

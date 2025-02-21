@@ -48,6 +48,7 @@ class Constants:
         SQLITE_DATABASE_FILE_TEST = 'database_expected.db'
         TUTORIAL_FILE_NAME = 'API_usage_guide.ipynb'
         TEMPLATES_DIR = 'default'
+        INSTANCES_DIR = 'instances'
 
     class Labels:
         """Standard headers and field names."""
