@@ -246,6 +246,7 @@ class Core:
             self,
             scenarios_idx: Optional[List[int] | int] = None,
             allow_none_values: bool = True,
+            var_list_to_update: List[str] = [],
     ) -> None:
         """
         Fetches data from the SQLite database and assigns it to cvxpy exogenous 
@@ -285,8 +286,25 @@ class Core:
         id_header = Constants.Labels.ID_FIELD['id'][0]
         allowed_values_types = Constants.NumericalSettings.ALLOWED_VALUES_TYPES
 
+        if not isinstance(var_list_to_update, list):
+            msg = "Passed item is not a list."
+            self.logger.error(msg)
+            raise TypeError(msg)
+
+        if not var_list_to_update == [] and \
+                not util.items_in_list(var_list_to_update, self.index.variables.keys()):
+            msg = "One or more passed items are not in the index variables."
+            self.logger.error(msg)
+            raise exc.SettingsError(msg)
+
+        if var_list_to_update == []:
+            var_list_to_update = self.index.list_variables
+
         with db_handler(self.sqltools):
             for var_key, variable in self.index.variables.items():
+
+                if var_key not in var_list_to_update:
+                    continue
 
                 if not isinstance(variable, Variable):
                     msg = "Passed item is not a 'Variable' class instance."
