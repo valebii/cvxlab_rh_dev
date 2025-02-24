@@ -388,7 +388,6 @@ class Core:
                         # pivoting and reshaping data to fit variables
                         pivoted_data = variable.reshaping_sqlite_table_data(
                             data=raw_data,
-                            nan_to_zero=allow_none_values,
                         )
 
                         self.problem.data_to_cvxpy_variable(

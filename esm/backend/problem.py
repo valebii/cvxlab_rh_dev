@@ -458,8 +458,8 @@ class Problem:
             variable_type = variable.type
 
         self.logger.debug(
-            f"Generating dataframe for {variable_type} variable '{variable_name}' "
-            "(cvxpy object, filter dictionary, sub problem key).")
+            f"Variable '{variable_name}' | Generating dataframe (cvxpy var, "
+            "filter, sub-problem key)")
 
         headers = {
             'cvxpy': Constants.Labels.CVXPY_VAR,

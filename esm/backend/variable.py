@@ -476,10 +476,10 @@ class Variable:
             aggfunc='first'
         )
 
-        pivoted_data = pivoted_data.reindex(
-            index=self.dims_items[0],
-            columns=self.dims_items[1]
-        )
+        # pivoted_data = pivoted_data.reindex(
+        #     index=self.dims_items[0],
+        #     columns=self.dims_items[1]
+        # )
 
         if nan_to_zero:
             pivoted_data.fillna(0, inplace=True)
