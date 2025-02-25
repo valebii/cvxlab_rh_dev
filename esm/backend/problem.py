@@ -403,9 +403,6 @@ class Problem:
             self.logger.error(msg)
             raise exc.SettingsError(msg)
 
-        self.logger.debug(
-            f"Generating constant '{variable_name}' as '{variable.value}'.")
-
         var_value = variable.define_constant(variable.value)
 
         result = self.create_cvxpy_variable(
@@ -456,10 +453,6 @@ class Problem:
 
         if variable_type is None:
             variable_type = variable.type
-
-        self.logger.debug(
-            f"Variable '{variable_name}' | Generating dataframe (cvxpy var, "
-            "filter, sub-problem key)")
 
         headers = {
             'cvxpy': Constants.Labels.CVXPY_VAR,
@@ -982,7 +975,7 @@ class Problem:
                 self.logger.info("Numerical problem overwritten.")
         else:
             self.logger.debug(
-                "Defining numerical problems based on symbolic problems.")
+                "Defining cvxpy numerical problems based on symbolic problems.")
 
         if util.find_dict_depth(self.symbolic_problem) == 1:
             self.numerical_problems = self.generate_problem_dataframe(
@@ -1051,8 +1044,10 @@ class Problem:
 
         for scenario in problems_df.index:
 
-            scenario_coords = problems_df.loc[scenario,
-                                              scenarios_coords_header]
+            scenario_coords = problems_df.loc[
+                scenario,
+                scenarios_coords_header,
+            ]
 
             if problem_key is not None:
                 msg = f"Defining sub-problem '{problem_key}'"
@@ -1357,7 +1352,7 @@ class Problem:
 
         for expression in symbolic_expressions:
 
-            self.logger.debug(f"Defining expression: '{expression}'")
+            self.logger.debug(f"Processing literal expression: '{expression}'")
             cvxpy_expression = None
 
             vars_symbols_list = self.parse_allowed_symbolic_vars(expression)

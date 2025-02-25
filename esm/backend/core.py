@@ -167,8 +167,8 @@ class Core:
                     isinstance(data_table.type, dict):
 
                 self.logger.debug(
-                    "Generating variable dataframe and cvxpy variable "
-                    f"for endogenous data table '{data_table_key}'.")
+                    f"Data table '{data_table_key}' | type: {data_table.type} | "
+                    "Generating dataframe and cvxpy variable.")
 
                 data_table.generate_coordinates_dataframes(
                     sets_split_problems=self.index.sets_split_problem_dict
@@ -210,6 +210,11 @@ class Core:
 
             # for constants, values are directly generated (no dataframes needed)
             if variable.type == 'constant':
+
+                self.logger.debug(
+                    f"Variable '{var_key}' | type: {variable.type} | Constant "
+                    f"value '{variable.value}'.")
+
                 variable.data = self.problem.generate_constant_data(
                     variable_name=var_key,
                     variable=variable
@@ -218,6 +223,11 @@ class Core:
             # for variables whose type is univocally defined, only one data structure
             # is generated and stored in variable.data
             elif variable.type in ['exogenous', 'endogenous']:
+
+                self.logger.debug(
+                    f"Variable '{var_key}' | type: {variable.type} | Generating "
+                    "data structure.")
+
                 variable.data = self.problem.generate_vars_dataframe(
                     variable_name=var_key,
                     variable=variable
@@ -228,6 +238,10 @@ class Core:
             # variable.data defined as a dictionary
             elif isinstance(variable.type, dict):
                 variable.data = {}
+
+                self.logger.debug(
+                    f"Variable '{var_key}' | type: {variable.type} | Generating "
+                    "data structure.")
 
                 for problem_key, problem_var_type in variable.type.items():
                     variable.data[problem_key] = self.problem.generate_vars_dataframe(
@@ -315,8 +329,8 @@ class Core:
                     continue
 
                 self.logger.debug(
-                    f"Fetching data from table '{var_key}' "
-                    "to cvxpy exogenous variable.")
+                    f"Data table '{var_key}' | Fetching data to cvxpy "
+                    "exogenous variable.")
 
                 err_msg = []
 
