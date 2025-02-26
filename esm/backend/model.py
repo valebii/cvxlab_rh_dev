@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 import pandas as pd
+import cvxpy as cp
 
 from esm.constants import Constants
 from esm.backend.core import Core
@@ -493,6 +494,8 @@ class Model:
             integrated_problems=integrated_problems,
             numerical_tolerance=numerical_tolerance,
             maximum_iterations=maximum_iterations,
+            canon_backend=cp.SCIPY_CANON_BACKEND,
+            ignore_dpp=True,
             **kwargs,
         )
 
