@@ -18,6 +18,7 @@ manipulation and validation.
 
 import pprint as pp
 import itertools as it
+import numpy as np
 import pandas as pd
 
 from collections.abc import Iterable
@@ -1030,3 +1031,22 @@ def transform_dict_none_to_values(dictionary: Dict, none_to: Any) -> Dict:
             result[key] = value
 
     return result
+
+
+def is_sparse(array: np.ndarray, threshold: float) -> bool:
+    """
+    Checks if a numpy ndarray can be considered sparse based on a given threshold.
+
+    Parameters:
+        array (np.ndarray): The numpy array to check.
+        threshold (float): The proportion of zero elements required to consider
+            the array as sparse.
+
+    Returns:
+        bool: True if the array is sparse, False otherwise.
+    """
+    total_elements = array.size
+    zero_elements = np.count_nonzero(array == 0)
+    proportion_zero = zero_elements / total_elements
+
+    return proportion_zero > threshold

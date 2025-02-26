@@ -19,8 +19,11 @@ Key functionalities include:
     Solving optimization problems and managing the results.
 
 """
+from operator import is_
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from scipy.sparse import csr_matrix
+
 import re
 import warnings
 
@@ -343,6 +346,8 @@ class Problem:
             ConceptualModelError: If the provided cvxpy_var is not a CVXPY Parameter.
             ValueError: If the provided data is not in a supported format.
         """
+        sparse_threshold = Constants.NumericalSettings.SPARSE_MATRIX_ZEROS_THRESHOLD
+
         if not isinstance(cvxpy_var, cp.Parameter):
             msg = "Data can only be assigned to exogenous variables."
             self.logger.error(msg)
@@ -353,12 +358,12 @@ class Problem:
         if isinstance(data, pd.DataFrame):
             if data.empty:
                 err_msg.append("Provided DataFrame is empty.")
-            cvxpy_var.value = data.values
+            data_values = data.values
 
         elif isinstance(data, np.ndarray):
             if data.size == 0:
                 err_msg.append("Provided numpy array is empty.")
-            cvxpy_var.value = data
+            data_values = data
 
         else:
             err_msg = "Supported data formats: pandas DataFrame or a numpy array."
@@ -366,6 +371,15 @@ class Problem:
         if err_msg:
             self.logger.error("\n".join(err_msg))
             raise exc.MissingDataError("\n".join(err_msg))
+
+        # conversion to sparse matrix if data is sparse
+        if util.is_sparse(data_values, sparse_threshold):
+            self.logger.debug("Converting data to sparse matrix.")
+            data_values_converted = csr_matrix(data_values)
+        else:
+            data_values_converted = data_values
+
+        cvxpy_var.value = data_values_converted
 
     def generate_constant_data(
             self,
@@ -392,6 +406,8 @@ class Problem:
             SettingsError: If the variable's value or type is not specified.
             TypeError: If the generated object is not a CVXPY Constant as expected.
         """
+        sparse_threshold = Constants.NumericalSettings.SPARSE_MATRIX_ZEROS_THRESHOLD
+
         if not variable.value or not variable.type:
             msg = "Type of constant value or type not specified for variable " \
                 f"'{variable_name}'"
@@ -404,6 +420,10 @@ class Problem:
             raise exc.SettingsError(msg)
 
         var_value = variable.define_constant(variable.value)
+
+        if util.is_sparse(var_value, sparse_threshold):
+            self.logger.debug("Converting constant values to sparse matrix.")
+            var_value = csr_matrix(var_value)
 
         result = self.create_cvxpy_variable(
             var_type=variable.type,

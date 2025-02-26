@@ -207,6 +207,7 @@ class Constants:
         TOLERANCE_MODEL_COUPLING_CONVERGENCE = 0.01
         MAXIMUM_ITERATIONS_MODEL_COUPLING = 20
         ROUNDING_DIGITS_RELATIVE_DIFFERENCE_DB = 5
+        SPARSE_MATRIX_ZEROS_THRESHOLD = 0.3
 
     class TextNotes:
         """Text notes and messages for user."""
