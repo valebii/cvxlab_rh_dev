@@ -481,6 +481,10 @@ class Model:
             f"Solving '{problem_count}' {problem_type} numerical problem(s) "
             f"for '{problem_scenarios}' scenarios with '{solver}' solver.")
 
+        if verbose:
+            self.logger.info("="*30)
+            self.logger.info("cvxpy logs below.")
+
         self.core.solve_numerical_problems(
             solver=solver,
             solver_verbose=verbose,
@@ -492,7 +496,7 @@ class Model:
             **kwargs,
         )
 
-        self.logger.info("=================================")
+        self.logger.info("="*30)
         self.logger.info("Numerical problems status report:")
         for info, status in self.core.problem.problem_status.items():
             self.logger.info(f"{info}: {status}")

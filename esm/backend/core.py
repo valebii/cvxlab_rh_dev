@@ -812,8 +812,12 @@ class Core:
             scenario_coords = scenarios_df.loc[scenario_idx, scenarios_header]
 
             self.logger.info("=================================")
-            self.logger.info(
-                f"Solving integrated problems for scenario {scenario_coords}")
+            if scenario_coords:
+                self.logger.info(
+                    f"Solving integrated problems for scenario {scenario_coords}"
+                )
+            else:
+                self.logger.info("Solving integrated problems")
 
             iter_count = 0
 
