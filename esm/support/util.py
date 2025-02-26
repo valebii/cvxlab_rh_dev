@@ -1049,4 +1049,9 @@ def is_sparse(array: np.ndarray, threshold: float) -> bool:
     zero_elements = np.count_nonzero(array == 0)
     proportion_zero = zero_elements / total_elements
 
-    return proportion_zero > threshold
+    if proportion_zero == 1:
+        return False
+    elif proportion_zero >= threshold:
+        return True
+    else:
+        return False

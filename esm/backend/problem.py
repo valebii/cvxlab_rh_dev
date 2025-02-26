@@ -19,7 +19,6 @@ Key functionalities include:
     Solving optimization problems and managing the results.
 
 """
-from operator import is_
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from scipy.sparse import csr_matrix

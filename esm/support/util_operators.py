@@ -11,6 +11,7 @@ inverses.
 """
 
 from typing import Optional
+from scipy.sparse import csr_matrix
 import numpy as np
 import cvxpy as cp
 
@@ -143,7 +144,7 @@ def shift(
 
     # extract values from cvxpy parameters
     set_length: np.ndarray = set_length.value
-    shift_value: np.ndarray = shift_value.value
+    shift_value: np.ndarray | csr_matrix = shift_value.value
 
     # checks
     if set_length is None or shift_value is None:
@@ -151,7 +152,7 @@ def shift(
             "Values assigned to set_length and shift_value cannot be None.")
 
     if not isinstance(set_length, np.ndarray) or \
-            not isinstance(shift_value, np.ndarray):
+            not isinstance(shift_value, (np.ndarray, csr_matrix)):
         raise TypeError(
             "Values Set length and shift value must be numpy arrays.")
 
