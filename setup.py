@@ -6,6 +6,8 @@ setup(
     packages=find_packages(),
     install_requires=[
         'numpy',
+        'pandas',
+        'scipy',
         'cvxpy',
         'openpyxl',
         'pytest',
@@ -13,5 +15,5 @@ setup(
     author='Matteo V. Rocco',
     author_email='matteovincenzo.rocco@polimi.it',
     description='...',
-    url='https://github.com/MIMO-modelling-suite/pyesm',
+    url='https://github.com/pyESM-project/pyesm',
 )
