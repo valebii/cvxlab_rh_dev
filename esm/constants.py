@@ -67,6 +67,7 @@ class Constants:
         COORDINATES_KEY = 'coordinates'
         VARIABLES_INFO_KEY = 'variables_info'
         VALUE_KEY = 'value'
+        BLANK_FILL_KEY = 'blank_fill'
 
         GENERIC_FIELD_TYPE = 'TEXT'
         VALUES_FIELD = {'values': ['values', 'REAL']}
@@ -117,6 +118,9 @@ class Constants:
                     ANY: {
                         # ALLOWED_CONSTANTS (only for constants!)
                         'value': (OPTIONAL, str),
+                        # numerical value that will be used to fill variables in
+                        # case of blank or nan values
+                        'blank_fill': (OPTIONAL, float),
                         # dictionary with keys as set_key symbols and values
                         # defining the dimension and filters for the set
                         ANY: (OPTIONAL, {
@@ -151,9 +155,21 @@ class Constants:
         }
 
         XLSX_TEMPLATE_COLUMNS = {
-            'structure_sets': ['set_key', *SET_STRUCTURE[1].keys()],
-            'structure_variables': ['table_key', *DATA_TABLE_STRUCTURE[1].keys(), 'set_keys ...'],
-            'problem': ['problem_key', *PROBLEM_STRUCTURE[1].keys()],
+            'structure_sets': [
+                'set_key',
+                *SET_STRUCTURE[1].keys()
+            ],
+            'structure_variables': [
+                'table_key',
+                *DATA_TABLE_STRUCTURE[1].keys(),
+                'value',
+                'blank_fill',
+                'set_keys ...'
+            ],
+            'problem': [
+                'problem_key',
+                *PROBLEM_STRUCTURE[1].keys()
+            ],
         }
 
     class SymbolicDefinitions:
@@ -200,7 +216,6 @@ class Constants:
         """Settings for numerical solvers and tolerances."""
         ALLOWED_VALUES_TYPES = (int, float)
         STD_VALUES_TYPE = float
-        DB_EMPTY_DATA_FILL = 0
         ALLOWED_SOLVERS = cp.installed_solvers()
         DEFAULT_SOLVER = 'GUROBI'
         TOLERANCE_TESTS_RESULTS_CHECK = 0.02

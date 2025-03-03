@@ -252,6 +252,7 @@ class Index:
         filters_key = Constants.Labels.FILTERS
         variables_info_key = Constants.Labels.VARIABLES_INFO_KEY
         value_key = Constants.Labels.VALUE_KEY
+        blank_fill_key = Constants.Labels.BLANK_FILL_KEY
 
         problems = {}
 
@@ -297,7 +298,13 @@ class Index:
                     elif property_key == value_key:
                         if property_value and property_value not in allowed_constants:
                             problems[f"{path}.{value_key}"] = \
-                                f"Constant type '{property_value}' not allowed."
+                                f"Constant value type '{property_value}' not allowed."
+
+                    # blank_fill field must be float
+                    elif property_key == blank_fill_key:
+                        if not isinstance(property_value, (int | float)):
+                            problems[f"{path}.{blank_fill_key}"] = \
+                                f"Blank fill value '{property_value}' must be a number."
 
                     # other properties must be allowed coordinates
                     elif property_key not in data_table.coordinates:

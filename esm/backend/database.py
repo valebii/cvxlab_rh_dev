@@ -451,7 +451,6 @@ class Database:
 
     def load_data_input_files_to_database(
         self,
-        empty_data_fill: Optional[Any] = None,
         file_extension: str = Constants.ConfigFiles.DATA_FILES_EXTENSION,
         force_overwrite: bool = False,
         table_key_list: list[str] = [],

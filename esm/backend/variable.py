@@ -111,6 +111,7 @@ class Variable:
         self.rows: Dict[str, Any] = {}
         self.cols: Dict[str, Any] = {}
         self.value: Optional[str] = None
+        self.blank_fill: Optional[float] = None
         self.related_table: Optional[str] = None
         self.related_dims_map: Optional[pd.DataFrame] = None
         self.var_info: Optional[Dict[str, Any]] = None
@@ -148,13 +149,20 @@ class Variable:
         to the corresponding attributes of the Variable class. This method is
         called upon initialization of the Variable class.
         """
+        value_key = Constants.Labels.VALUE_KEY
+        blank_fill_key = Constants.Labels.BLANK_FILL_KEY
+        allowed_constants = Constants.SymbolicDefinitions.ALLOWED_CONSTANTS
+
         if self.var_info is None:
             return
 
-        constant_value = self.var_info.get('value', None)
-        if constant_value and constant_value \
-                in Constants.SymbolicDefinitions.ALLOWED_CONSTANTS:
+        constant_value = self.var_info.get(value_key, None)
+        if constant_value and constant_value in allowed_constants:
             self.value = constant_value
+
+        blank_fill_value = self.var_info.get(blank_fill_key, None)
+        if blank_fill_value and isinstance(blank_fill_value, (int, float)):
+            self.blank_fill = blank_fill_value
 
         for dimension in ['rows', 'cols']:
             shape_set = util.fetch_dict_primary_key(

@@ -374,7 +374,6 @@ class Model:
 
         self.core.database.load_data_input_files_to_database(
             force_overwrite=force_overwrite,
-            empty_data_fill=Constants.NumericalSettings.DB_EMPTY_DATA_FILL,
             table_key_list=table_key_list,
         )
 
