@@ -161,7 +161,8 @@ class Variable:
             self.value = constant_value
 
         blank_fill_value = self.var_info.get(blank_fill_key, None)
-        if blank_fill_value and isinstance(blank_fill_value, (int, float)):
+        if blank_fill_value is not None and \
+                isinstance(blank_fill_value, (int, float)):
             self.blank_fill = blank_fill_value
 
         for dimension in ['rows', 'cols']:
@@ -401,6 +402,32 @@ class Variable:
             all_coordinates.update(coordinates)
         return all_coordinates
 
+    @property
+    def all_coordinates_w_headers(self) -> Dict[str, List[str] | None]:
+
+        if not self.coordinates_info:
+            self.logger.warning(
+                f"Coordinates not defined for variable '{self.symbol}'.")
+            return []
+
+        if not self.coordinates:
+            self.logger.warning(
+                f"Coordinates not defined for variable '{self.symbol}'.")
+            return []
+
+        all_coords_w_headers = {}
+        for category in Constants.SymbolicDefinitions.ALLOWED_DIMENSIONS:
+
+            coords_info = self.coordinates_info[category]
+            coords = self.coordinates[category]
+
+            if coords_info:
+                table_header = next(iter(coords_info.values()))
+                table_values = next(iter(coords.values()))
+                all_coords_w_headers[table_header] = table_values
+
+        return all_coords_w_headers
+
     def none_data_coordinates(self, row: int) -> Dict[str, Any] | None:
         """
         Checks if there are any None data values in the CVXPY variables and 
@@ -484,6 +511,8 @@ class Variable:
             aggfunc='first'
         )
 
+        # l'ho tolto perchè dava problemi, generava NaNs quando non c'è indice
+        # di riga/colonna (vettore senza label).
         # pivoted_data = pivoted_data.reindex(
         #     index=self.dims_items[0],
         #     columns=self.dims_items[1]
