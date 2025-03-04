@@ -511,7 +511,7 @@ class SQLManager:
         self.execute_query(query)
         return self.cursor.fetchone()[0]
 
-    def delete_table_entries(
+    def delete_table_column_data(
             self,
             table_name: str,
             force_operation: bool = False,
@@ -726,7 +726,7 @@ class SQLManager:
                     query = f"INSERT OR REPLACE INTO {table_name} VALUES ({placeholders})"
 
             elif action == 'overwrite':
-                if not self.delete_table_entries(table_name, force_overwrite):
+                if not self.delete_table_column_data(table_name, force_overwrite):
                     self.logger.debug(
                         f"SQLite table '{table_name}' - original data NOT erased.")
                     return

@@ -282,8 +282,8 @@ class Model:
         sqlite_db_path = Path(self.paths['sqlite_database'])
         input_files_dir_path = Path(self.paths['input_data_dir'])
 
-        erased_db = True
-        erased_input_dir = True
+        erased_db = False
+        erased_input_dir = False
 
         if use_existing_data:
             self.logger.info(
@@ -302,7 +302,11 @@ class Model:
 
         if erased_db:
             self.logger.info(
-                f"SQLite database '{sqlite_db_name}' erased and generated.")
+                f"Existing SQLite database '{sqlite_db_name}' erased.")
+
+        if erased_db or not sqlite_db_path.exists():
+            self.logger.info(
+                f"Creating new blank SQLite database '{sqlite_db_name}'.")
             self.core.database.create_blank_sqlite_database()
             self.core.database.load_sets_to_sqlite_database()
             self.core.database.generate_blank_sqlite_data_tables()
@@ -319,9 +323,12 @@ class Model:
                 force_erase=False,
             )
 
-        if erased_input_dir:
+            if erased_input_dir:
+                self.logger.info("Existing input data directory erased.")
+
+        if erased_input_dir or not input_files_dir_path.exists():
             self.logger.info(
-                "Input data directory erased. Blank excel file/s regenerated.")
+                "Generating new blank input data directory and related file/s.")
             self.core.database.generate_blank_data_input_files()
         else:
             self.logger.info("Relying on existing input data directory.")
