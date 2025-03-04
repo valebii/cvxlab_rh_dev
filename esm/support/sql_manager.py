@@ -182,6 +182,7 @@ class SQLManager:
             many: bool = False,
             fetch: bool = False,
             commit: bool = True,
+            batch_size: Optional[int] = None,
     ) -> Optional[List[Tuple]]:
         """
         Executes a specified SQL query using provided parameters.
@@ -219,8 +220,15 @@ class SQLManager:
             self.logger.error(msg)
             raise exc.OperationalError(msg)
 
+        if not batch_size:
+            batch_size = Constants.NumericalSettings.SQL_BATCH_SIZE
+
         try:
-            if many:
+            if many and batch_size is not None:
+                for i in range(0, len(params), batch_size):
+                    batch_params = params[i:i + batch_size]
+                    self.cursor.executemany(query, batch_params)
+            elif many:
                 self.cursor.executemany(query, params)
             else:
                 self.cursor.execute(query, params)
@@ -694,7 +702,7 @@ class SQLManager:
         # convert all entries to strings except for values field
         for col in dataframe.columns:
             if col not in (values_field, table_primary_column):
-                dataframe[col] = dataframe[col].astype(str)
+                dataframe.loc[:, col] = dataframe[col].astype(str)
 
         # define appropriate query based on table state
         if table_existing_entries == 0:
@@ -711,28 +719,11 @@ class SQLManager:
                     self.logger.error(msg)
                     raise exc.OperationalError(msg)
 
-                # case where all data entries need to be replaced
-                elif len(dataframe) == len(dataframe_existing):
+                # case where all or a part of data entries need to be replaced
+                else:
                     data = [tuple(row) for row in dataframe.values.tolist()]
                     placeholders = ', '.join(['?'] * len(table_fields))
                     query = f"INSERT OR REPLACE INTO {table_name} VALUES ({placeholders})"
-
-                # case where only some data entries need to be updated
-                else:
-                    shared_cols = [
-                        col for col in dataframe.columns
-                        if col not in (id_field, values_field)
-                    ]
-
-                    set_statements = ' AND '.join(
-                        [f"{col} = ?" for col in shared_cols])
-
-                    data = [
-                        (row[values_field], *[row[col] for col in shared_cols])
-                        for _, row in dataframe.iterrows()
-                    ]
-
-                    query = f"UPDATE {table_name} SET `{values_field}` = ? WHERE {set_statements}"
 
             elif action == 'overwrite':
                 if not self.delete_table_entries(table_name, force_overwrite):
