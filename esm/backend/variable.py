@@ -417,14 +417,22 @@ class Variable:
 
         all_coords_w_headers = {}
         for category in Constants.SymbolicDefinitions.ALLOWED_DIMENSIONS:
+            coords_info = self.coordinates_info.get(category, {})
+            coords = self.coordinates.get(category, {})
 
-            coords_info = self.coordinates_info[category]
-            coords = self.coordinates[category]
+            for key, table_header in coords_info.items():
+                table_values = coords.get(key, [])
 
-            if coords_info:
-                table_header = next(iter(coords_info.values()))
-                table_values = next(iter(coords.values()))
-                all_coords_w_headers[table_header] = table_values
+                if table_header in all_coords_w_headers:
+                    all_coords_w_headers[table_header].extend(table_values)
+                else:
+                    all_coords_w_headers[table_header] = table_values
+
+        # remove duplicates
+        for key in all_coords_w_headers:
+            all_coords_w_headers[key] = list(
+                dict.fromkeys(all_coords_w_headers[key])
+            )
 
         return all_coords_w_headers
 
