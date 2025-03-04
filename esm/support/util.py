@@ -907,37 +907,48 @@ def remove_empty_items_from_dict(
     return _remove_items(dictionary)
 
 
-def merge_dicts(dicts_list: List[Dict]) -> Dict:
+def merge_dicts(
+        dicts_list: List[Dict],
+        unique_values: bool = False,
+) -> Dict[str, List[Any]]:
     """
-    Merge a list of dictionaries into a single dictionary. If a key appears in 
-    multiple dictionaries, its values are combined into a list.
+    Merges a list of dictionaries into a single dictionary.
+
+    - If a key appears in multiple dictionaries, its values are combined into a list.
+    - If `unique_values` is True, ensures values are unique per key.
 
     Args:
-        dicts_list (List[Dict]): A list of dictionaries to merge.
+        dicts_list (List[Dict[str, Any]]): A list of dictionaries to merge.
+        unique_values (bool): If True, ensures unique values per key. Default is False.
 
     Returns:
-        Dict: A single dictionary with merged keys and values.
+        Dict[str, List[Any]]: A merged dictionary with keys combined and values in lists.
     """
     merged = {}
 
-    for d in dicts_list:
-        if d is None:
-            d = {}
+    for dictionary in dicts_list:
+        if dictionary is None:
+            dictionary = {}
 
-        for key, value in d.items():
-            if value is not None:
-                if key in merged:
-                    if isinstance(merged[key], list):
-                        merged[key].append(value)
-                    else:
-                        merged[key] = [merged[key], value]
+        for key, value in dictionary.items():
+
+            if value is None:
+                continue
+
+            if not isinstance(value, Iterable) or \
+                    isinstance(value, (str, bytes)):
+                value = [value]
+
+            if key not in merged:
+                merged[key] = list(value) if not unique_values else set(value)
+
+            else:
+                if unique_values:
+                    merged[key].update(value)  # Use set to avoid duplicates
                 else:
-                    if not isinstance(value, list):
-                        merged[key] = list([value])
-                    else:
-                        merged[key] = value
+                    merged[key].extend(value)  # Allow duplicates
 
-    return merged
+    return {key: list(values) for key, values in merged.items()}
 
 
 def pivot_dataframe_to_data_structure(
