@@ -13,6 +13,7 @@ loading data from Excel files, generating data input files, and managing the
 SQLite database interactions via the SQLManager.
 """
 
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -193,6 +194,7 @@ class Database:
                 assert isinstance(set_instance, SetTable), \
                     f"Expected SetTable type, got {type(set_instance)} instead."
 
+                set_name = set_instance.name
                 table_name = set_instance.table_name
                 table_headers = set_instance.table_headers
                 table_id_header = Constants.Labels.ID_FIELD['id']
@@ -205,8 +207,7 @@ class Database:
                     self.sqltools.create_table(table_name, table_headers)
 
                 else:
-                    msg = f"Table fields for set '{set_instance.symbol}' " \
-                        "are not defined."
+                    msg = f"Table fields for set '{set_name}' are not defined."
                     self.logger.error(msg)
                     raise exc.MissingDataError(msg)
 
@@ -296,7 +297,10 @@ class Database:
                     foreign_keys=table.foreign_keys,
                 )
 
-    def sets_data_to_sql_data_tables(self) -> None:
+    def sets_data_to_sql_data_tables(
+            self,
+            lightweight: bool = True,
+    ) -> None:
         """
         Transforms and loads sets data into SQLite tables, preparing them for 
         variable storage.
@@ -305,7 +309,8 @@ class Database:
         a DataFrame, adds an ID column to the DataFrame, and loads the DataFrame 
         into the corresponding table in the SQLite database. It then adds a 
         standard values field to the table.
-        Excludes constant types to separate configuration from variable data.
+        Excludes constant types to separate related configuration from variable 
+        data.
 
         Returns:
             None
@@ -317,11 +322,12 @@ class Database:
             The standard values field is added to store the values of the variables.
         """
         self.logger.debug(
-            "Adding sets information to sqlite data tables in "
+            "Adding sets information to SQLite data tables in "
             f"'{Constants.ConfigFiles.SQLITE_DATABASE_FILE}'.")
 
         with db_handler(self.sqltools):
             for table_key, table in self.index.data.items():
+                table: DataTable
 
                 if table.type == 'constant':
                     continue
@@ -334,6 +340,42 @@ class Database:
                     data_dict=table.coordinates_values,
                     key_order=table_headers_list
                 )
+
+                if lightweight:
+                    self.logger.debug(
+                        "Generating lightweight SQLite data tables relying only on "
+                        "set combinations filtered by model variables.")
+
+                    dicts_list = []
+                    for variable in self.index.variables.values():
+                        variable: Variable
+                        if variable.related_table == table_key:
+                            dicts_list.append(
+                                variable.all_coordinates_w_headers
+                            )
+
+                    coords_dict = util.merge_dicts(
+                        dicts_list=dicts_list,
+                        unique_values=True
+                    )
+
+                    coords_to_keep_df = util.unpivot_dict_to_dataframe(
+                        data_dict=coords_dict,
+                        key_order=table_headers_list
+                    )
+
+                    unpivoted_coords_df = unpivoted_coords_df.merge(
+                        coords_to_keep_df,
+                        on=table_headers_list,
+                        how='inner'
+                    )
+
+                    if not util.check_dataframes_equality(
+                        df_list=[coords_to_keep_df, unpivoted_coords_df]
+                    ):
+                        msg = "Dataframes are not equal after merge operation."
+                        self.logger.error(msg)
+                        raise exc.OperationalError(msg)
 
                 util.add_column_to_dataframe(
                     dataframe=unpivoted_coords_df,
@@ -629,7 +671,7 @@ class Database:
                         f"Reinitializing endogenous table '{table_key}' "
                         "in SQLite database.")
 
-                    self.sqltools.delete_table_entries(
+                    self.sqltools.delete_table_column_data(
                         table_name=table_key,
                         force_operation=force_overwrite,
                         column_name=Constants.Labels.VALUES_FIELD['values'][0],
