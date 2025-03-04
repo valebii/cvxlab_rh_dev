@@ -970,7 +970,7 @@ def pivot_dataframe_to_data_structure(
                 break
 
             value = row[column]
-            if value:
+            if value is not None:
                 if not skip_process_str:
                     inner_dict[column] = util_text.process_str(value)
                 else:
@@ -1003,7 +1003,7 @@ def pivot_dataframe_to_data_structure(
                     continue
 
                 value = row[column]
-                if value:
+                if value is not None:
                     inner_dict[column] = util_text.process_str(value)
 
             data_structure[outern_key][secondary_key][inner_key] = inner_dict

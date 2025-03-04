@@ -377,6 +377,11 @@ class Model:
             table_key_list=table_key_list,
         )
 
+        self.core.database.fill_nan_values_in_database(
+            force_overwrite=force_overwrite,
+            table_key_list=table_key_list,
+        )
+
     def initialize_problems(
             self,
             force_overwrite: bool = False,

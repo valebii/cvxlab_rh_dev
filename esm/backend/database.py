@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional
 from esm.backend.data_table import DataTable
 from esm.backend.index import Index
 from esm.backend.set_table import SetTable
+from esm.backend.variable import Variable
 from esm.log_exc import exceptions as exc
 from esm.log_exc.logger import Logger
 from esm.constants import Constants
@@ -475,28 +476,24 @@ class Database:
 
         Returns:
             None
-
-        Notes:
-            The method logs information about the loading process.
-            The method uses a context manager to handle the database connection.
         """
         self.logger.debug(
             "Loading data from input file/s filled by the user "
             "to SQLite database.")
 
+        if table_key_list == []:
+            table_key_list = self.index.data.keys()
+        else:
+            if not util.items_in_list(
+                table_key_list,
+                self.index.data.keys()
+            ):
+                msg = "One or more passed tables keys not present in the index."
+                self.logger.error(msg)
+                raise ValueError(msg)
+
         if self.settings['multiple_input_files']:
             data = {}
-
-            if table_key_list == []:
-                table_key_list = self.index.data.keys()
-            else:
-                if not util.items_in_list(
-                    table_key_list,
-                    self.index.data.keys()
-                ):
-                    msg = "One or more passed tables keys not present in the index."
-                    self.logger.error(msg)
-                    raise ValueError(msg)
 
             with db_handler(self.sqltools):
                 for table_key, table in self.index.data.items():
@@ -512,7 +509,6 @@ class Database:
                             self.files.excel_to_dataframes_dict(
                                 excel_file_dir_path=self.paths['input_data_dir'],
                                 excel_file_name=file_name,
-                                empty_data_fill=empty_data_fill,
                             )
                         )
                         self.sqltools.dataframe_to_table(
@@ -525,16 +521,88 @@ class Database:
             data = self.files.excel_to_dataframes_dict(
                 excel_file_dir_path=self.paths['input_data_dir'],
                 excel_file_name=Constants.ConfigFiles.INPUT_DATA_FILE,
-                empty_data_fill=empty_data_fill,
             )
 
             with db_handler(self.sqltools):
                 for table_key, table in data.items():
+
+                    if table_key not in table_key_list:
+                        continue
+
                     self.sqltools.dataframe_to_table(
                         table_name=table_key,
                         dataframe=table,
                         force_overwrite=force_overwrite,
                     )
+
+    def fill_nan_values_in_database(
+            self,
+            force_overwrite: bool = False,
+            table_key_list: List[str] = [],
+    ) -> None:
+        """
+        The method parse variables and related 'blank_fill' values from the index.
+        Then, it iterates over each data table in the index and fills the NaN
+        values in the SQLite database with the corresponding 'blank_fill' values.
+        This should facilitate the definition of data in the input files.
+
+        Args:
+            force_overwrite (bool, optional): If True, forces the overwrite of
+                existing data. Defaults to False.
+        """
+        self.logger.debug(
+            "Filling blank data in SQLite data tables based on the 'blank_fill' "
+            "attribute of each variable.")
+
+        blank_fill_key = Constants.Labels.BLANK_FILL_KEY
+        value_header = Constants.Labels.VALUES_FIELD['values'][0]
+
+        if table_key_list == []:
+            table_key_list = self.index.data.keys()
+        else:
+            if not util.items_in_list(
+                table_key_list,
+                self.index.data.keys()
+            ):
+                msg = "One or more passed tables keys not present in the index."
+                self.logger.error(msg)
+                raise ValueError(msg)
+
+        with db_handler(self.sqltools):
+
+            for var_key, variable in self.index.variables.items():
+                variable: Variable
+
+                blank_fill_value = variable.var_info.get(blank_fill_key, None)
+                related_table = variable.related_table
+
+                if related_table not in table_key_list:
+                    continue
+
+                if blank_fill_value is None:
+                    continue
+
+                df_query = self.sqltools.table_to_dataframe(
+                    table_name=related_table,
+                    filters_dict=variable.all_coordinates_w_headers,
+                )
+
+                df_query_nan = df_query[df_query[value_header].isna()]
+                df_query_nan.loc[
+                    df_query[value_header].isna(), value_header
+                ] = blank_fill_value
+
+                self.logger.debug(
+                    f"Table '{related_table}' | Filling '{len(df_query_nan)}' "
+                    f"entries with value '{blank_fill_value}' (Variable '{var_key}')."
+                )
+
+                self.sqltools.dataframe_to_table(
+                    table_name=related_table,
+                    dataframe=df_query_nan,
+                    action='update',
+                    force_overwrite=force_overwrite,
+                )
 
     def reinit_sqlite_endogenous_tables(
             self,

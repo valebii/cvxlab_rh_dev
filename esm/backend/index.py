@@ -294,17 +294,23 @@ class Index:
                     if not property_value:
                         continue
 
-                    # value field must be allowed
+                    # value field must be assigned to constants only, and it
+                    # must be allowed
                     elif property_key == value_key:
+                        if data_table.type != 'constant':
+                            problems[f"{path}.{value_key}"] = \
+                                "'value' attribute can only be assigned to constants."
+
                         if property_value and property_value not in allowed_constants:
                             problems[f"{path}.{value_key}"] = \
                                 f"Constant value type '{property_value}' not allowed."
 
-                    # blank_fill field must be float
+                    # blank_fill field can only be assigned to exogenous variables
                     elif property_key == blank_fill_key:
-                        if not isinstance(property_value, (int | float)):
+                        if data_table.type != 'exogenous':
                             problems[f"{path}.{blank_fill_key}"] = \
-                                f"Blank fill value '{property_value}' must be a number."
+                                "'blank_fill' attribute can only be assigned to " \
+                                "exogenous variables."
 
                     # other properties must be allowed coordinates
                     elif property_key not in data_table.coordinates:
