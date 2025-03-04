@@ -307,10 +307,10 @@ class Index:
 
                     # blank_fill field can only be assigned to exogenous variables
                     elif property_key == blank_fill_key:
-                        if data_table.type != 'exogenous':
+                        if data_table.type == ('endogenous' or 'constant'):
                             problems[f"{path}.{blank_fill_key}"] = \
-                                "'blank_fill' attribute can only be assigned to " \
-                                "exogenous variables."
+                                "'blank_fill' attribute cannot be assigned to " \
+                                "endogenous variables or constants."
 
                     # other properties must be allowed coordinates
                     elif property_key not in data_table.coordinates:
