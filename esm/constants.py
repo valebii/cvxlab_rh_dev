@@ -10,7 +10,12 @@ The module also collects allowed operators and constants labels necessary for
 defining symbolic problem.
 To avoid direct access and eventual unexpected modification of protected items 
 may occur in other modules, constants are defined as class variables of the 
-Constants class, accessible through the 'get' getter method.
+Constants class, accessible through the '__getattr__' getter method.
+
+Classes:
+    Constants: Centralized repository of constants grouped into meaningful
+        categories for clarity and ease of access. Supports direct attribute
+        access of constants using '__getattr__' method.
 """
 import cvxpy as cp
 import numpy as np
@@ -22,7 +27,16 @@ class Constants:
     """
     Centralized repository of constants grouped into meaningful categories for 
     clarity and ease of access. Supports direct attribute access of constants 
-    using '__getattr__' method.
+    using the '__getattr__' method.
+
+    Subgroups:
+        ConfigFiles: Constants related to configuration and file management.
+        Labels: Standard headers and field names.
+        DefaultStructures: Default structures for data validation.
+        SymbolicDefinitions: Allowed constants and operators for symbolic 
+            problem definitions.
+        NumericalSettings: Settings for numerical solvers and tolerances.
+        TextNotes: Text notes and messages for user.
 
     Usage:
         Direct access:
@@ -78,7 +92,7 @@ class Constants:
         COLUMN_AGGREGATION_SUFFIX = '_Aggregation'
 
     class DefaultStructures:
-        """Default structures for data validation."""
+        """Default structures for data validation and for generating templates."""
         OPTIONAL = object()
         ANY = object()
 

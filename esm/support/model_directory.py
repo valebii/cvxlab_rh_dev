@@ -47,7 +47,7 @@ def create_model_dir(
         }
 
         for file_name, structure_template in structure_mapping.items():
-            generate_yaml_template(
+            _generate_yaml_template(
                 structure=structure_template[1],
                 model_dir_path=model_dir_path,
                 file_name=f"{file_name}.yml",
@@ -80,7 +80,7 @@ def create_model_dir(
         )
 
 
-def generate_yaml_template(
+def _generate_yaml_template(
         structure: dict,
         model_dir_path: Path,
         file_name: str,
@@ -248,7 +248,48 @@ def transfer_setup_info_xlsx(
             )
 
 
-def save_model_instance(
+def handle_model_instance(
+        action: Literal['save', 'load'],
+        file_name: str,
+        source_dir_path: str | Path = None,
+        instance: Model = None,
+) -> Model | None:
+    """
+    Handles saving or loading a model instance based on the specified action.
+
+    Args:
+        action (Literal['save', 'load']): The action to perform, either 'save' 
+            or 'load'.
+        file_name (str): The name of the file to save/load the model instance.
+        source_dir_path (str | Path, optional): The directory path to load the 
+            model instance from. Required if action is 'load'.
+        instance (Model, optional): The model instance to save. Required if 
+            action is 'save'.
+
+    Returns:
+        Model | None: The loaded model instance if action is 'load', otherwise None.
+
+    Raises:
+        ValueError: If the action is 'save' and the instance is not provided.
+        FileNotFoundError: If the action is 'load' and the file is not found.
+    """
+    if action not in ['save', 'load']:
+        raise ValueError("Invalid action. Must be either 'save' or 'load'.")
+
+    if action == 'save':
+        if instance is None:
+            raise ValueError("Instance must be provided for saving.")
+        _save_model_instance(instance, file_name)
+        return None
+
+    elif action == 'load':
+        if source_dir_path is None:
+            raise ValueError(
+                "Source directory path must be provided for loading.")
+        return _load_model_instance(file_name, source_dir_path)
+
+
+def _save_model_instance(
         instance: Model,
         file_name: str,
 ) -> None:
@@ -301,7 +342,7 @@ def save_model_instance(
             f"Model instance '{file_name}' NOT overwritten.")
 
 
-def load_model_instance(
+def _load_model_instance(
         file_name: str,
         source_dir_path: str | Path,
 ) -> Model:
