@@ -18,15 +18,15 @@ from typing import Dict, List, Optional
 import pandas as pd
 import cvxpy as cp
 
-from esm.constants import Constants
-from esm.backend.data_table import DataTable
-from esm.backend.set_table import SetTable
-from esm.backend.variable import Variable
-from esm.log_exc import exceptions as exc
-from esm.log_exc.logger import Logger
-from esm.support import util
-from esm.support.file_manager import FileManager
-from esm.support.dotdict import DotDict
+from cvxlab.constants import Constants
+from cvxlab.backend.data_table import DataTable
+from cvxlab.backend.set_table import SetTable
+from cvxlab.backend.variable import Variable
+from cvxlab.log_exc import exceptions as exc
+from cvxlab.log_exc.logger import Logger
+from cvxlab.support import util
+from cvxlab.support.file_manager import FileManager
+from cvxlab.support.dotdict import DotDict
 
 
 class Index:

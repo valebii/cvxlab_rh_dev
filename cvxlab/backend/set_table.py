@@ -14,8 +14,8 @@ data efficiently.
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 import pandas as pd
 
-from esm.constants import Constants
-from esm.log_exc.logger import Logger
+from cvxlab.constants import Constants
+from cvxlab.log_exc.logger import Logger
 
 
 class SetTable:

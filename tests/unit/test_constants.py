@@ -1,5 +1,5 @@
 import pytest
-from esm.constants import Constants
+from cvxlab.constants import Constants
 
 
 def test_getattr_method():

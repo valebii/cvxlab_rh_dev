@@ -13,8 +13,8 @@ compatible with the CVXPY solvers.
 """
 
 # Import necessary modules and submodules
-from esm.backend.model import Model
-from esm.support.model_directory import (
+from cvxlab.backend.model import Model
+from cvxlab.support.model_directory import (
     create_model_dir,
     transfer_setup_info_xlsx,
     handle_model_instance

@@ -13,7 +13,7 @@ from math import exp
 import pytest
 import numpy as np
 
-from esm.support.util_operators import *
+from cvxlab.support.util_operators import *
 
 
 def test_power():

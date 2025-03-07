@@ -11,7 +11,7 @@ This module contains tests for the functions in the 'esm.support.util' module.
 import pytest
 import pprint
 
-from esm.support.util import *
+from cvxlab.support.util import *
 
 
 def test_prettify(capfd):

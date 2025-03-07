@@ -25,7 +25,7 @@ from collections.abc import Iterable
 from copy import deepcopy
 from typing import Dict, List, Any, Literal, Optional, Tuple
 
-from esm.support import util_text
+from cvxlab.support import util_text
 
 
 def prettify(item: dict) -> None:

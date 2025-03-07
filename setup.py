@@ -1,8 +1,10 @@
 from setuptools import setup, find_packages
 
+from cvxlab.version import __version__
+
 setup(
     name='CVXlab',
-    version='0.1',
+    version=__version__,
     packages=find_packages(),
     install_requires=[
         'numpy',
@@ -14,6 +16,6 @@ setup(
     ],
     author='Matteo V. Rocco',
     author_email='matteovincenzo.rocco@polimi.it',
-    description='...',
+    description='A Python-embedded, open-source modeling framework for convex numerical optimization problems.',
     url='https://github.com/pyESM-project/pyesm',
 )

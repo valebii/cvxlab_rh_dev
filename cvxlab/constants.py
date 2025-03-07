@@ -20,7 +20,7 @@ Classes:
 import cvxpy as cp
 import numpy as np
 
-from esm.support import util_constants, util_operators
+from cvxlab.support import util_constants, util_operators
 
 
 class Constants:

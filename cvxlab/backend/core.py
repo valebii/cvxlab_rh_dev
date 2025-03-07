@@ -19,16 +19,16 @@ import numpy as np
 import pandas as pd
 import cvxpy as cp
 
-from esm.backend.data_table import DataTable
-from esm.backend.database import Database
-from esm.backend.index import Index, Variable
-from esm.backend.problem import Problem
-from esm.log_exc import exceptions as exc
-from esm.log_exc.logger import Logger
-from esm.constants import Constants
-from esm.support import util
-from esm.support.file_manager import FileManager
-from esm.support.sql_manager import SQLManager, db_handler
+from cvxlab.backend.data_table import DataTable
+from cvxlab.backend.database import Database
+from cvxlab.backend.index import Index, Variable
+from cvxlab.backend.problem import Problem
+from cvxlab.log_exc import exceptions as exc
+from cvxlab.log_exc.logger import Logger
+from cvxlab.constants import Constants
+from cvxlab.support import util
+from cvxlab.support.file_manager import FileManager
+from cvxlab.support.sql_manager import SQLManager, db_handler
 
 
 class Core:

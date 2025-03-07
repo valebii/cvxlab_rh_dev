@@ -13,7 +13,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from esm.support.util_constants import *
+from cvxlab.support.util_constants import *
 
 
 def test_tril():

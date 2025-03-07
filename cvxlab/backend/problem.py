@@ -30,14 +30,14 @@ import pandas as pd
 import numpy as np
 import cvxpy as cp
 
-from esm.backend.data_table import DataTable
-from esm.constants import Constants
-from esm.log_exc import exceptions as exc
-from esm.log_exc.logger import Logger
-from esm.support import util
-from esm.support.file_manager import FileManager
-from esm.support.dotdict import DotDict
-from esm.backend.index import Index, Variable
+from cvxlab.backend.data_table import DataTable
+from cvxlab.constants import Constants
+from cvxlab.log_exc import exceptions as exc
+from cvxlab.log_exc.logger import Logger
+from cvxlab.support import util
+from cvxlab.support.file_manager import FileManager
+from cvxlab.support.dotdict import DotDict
+from cvxlab.backend.index import Index, Variable
 
 
 class Problem:

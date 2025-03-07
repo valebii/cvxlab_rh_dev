@@ -5,8 +5,8 @@ import pandas as pd
 import numpy as np
 import pytest
 
-from esm.log_exc.logger import Logger
-from esm.support.sql_manager import SQLManager, db_handler
+from cvxlab.log_exc.logger import Logger
+from cvxlab.support.sql_manager import SQLManager, db_handler
 
 
 std_table_name = 'test_table'

@@ -1,5 +1,5 @@
 import pytest
-from esm.support.util_text import *
+from cvxlab.support.util_text import *
 
 
 def run_test_cases(func, test_cases):
