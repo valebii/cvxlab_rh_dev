@@ -266,7 +266,7 @@ def annuity(
 def weibull_distribution(
         scale_factor: cp.Parameter,
         shape_factor: cp.Parameter,
-        range_vector: cp.Constant,
+        range_vector: cp.Parameter | cp.Constant,
         dimensions: int,
         rounding: int = 2,
 ) -> cp.Parameter:
@@ -308,10 +308,12 @@ def weibull_distribution(
     """
     if not isinstance(scale_factor, cp.Parameter) or \
             not isinstance(shape_factor, cp.Parameter) or \
-            not isinstance(range_vector, cp.Constant):
+            not isinstance(range_vector, cp.Parameter | cp.Constant):
         raise TypeError(
-            "scale_factor and shape_factor must be cvxpy.Parameters, "
-            "range_vector must be cvxpy.Constant.")
+            "Custom function weibull_distribution() | scale_factor and "
+            "shape_factor must be cvxpy.Parameters, range_vector must be "
+            "cvxpy.Constant or cvxpy.Parameter."
+        )
 
     # extract values from cvxpy parameters
     sc: np.ndarray = scale_factor.value

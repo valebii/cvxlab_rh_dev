@@ -182,7 +182,7 @@ class Constants:
         ALLOWED_CONSTANTS = {
             'sum_vector': (np.ones, {}),
             'identity': (np.eye, {}),
-            'set_length': (np.size, {}),
+            'set_length': (np.max, {}),
             'arange_1': (util_constants.arange, {}),
             'arange_0': (util_constants.arange, {'start_from': 0}),
             'lower_triangular': (util_constants.tril, {}),
