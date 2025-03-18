@@ -572,7 +572,12 @@ class FileManager:
             self.logger.error(f'{excel_file_name} does not exist.')
             raise FileNotFoundError(f"{excel_file_name} does not exist.")
 
-        df_dict = pd.read_excel(io=file_path, sheet_name=None)
+        try:
+            df_dict = pd.read_excel(io=file_path, sheet_name=None)
+        except Exception as error:
+            msg = f"Error reading Excel file: {str(error)}"
+            self.logger.error(msg)
+            raise exc.OperationalError(msg)
 
         for dataframe in df_dict.values():
             for col in dataframe.columns:
