@@ -354,15 +354,15 @@ def weibull_distribution(
     err_msg = []
 
     # WARNING: non è possibile avere sc e sh funzioni del tempo (rx)
-    if not len(sc) == 1:
+    if not sc.size == 1:
         err_msg.append(
             "Weibull scale factor must be a scalar. "
-            f"Passed dimension: '{len(sc)}'.")
+            f"Passed dimension: '{sc.shape}'.")
 
-    if not len(sh) == 1:
+    if not sh.size == 1:
         err_msg.append(
             "Weibull shape factor must be a scalar. "
-            f"Passed dimension: '{len(sh)}'.")
+            f"Passed dimension: '{sh.shape}'.")
 
     if dimensions not in [1, 2]:
         err_msg.append(
@@ -379,8 +379,8 @@ def weibull_distribution(
 
     # defining Weibull function range
     weib_range = int(sc[0, 0]) * 2
-    if weib_range <= len(rx):
-        weib_range = len(rx)
+    if weib_range <= rx.size:
+        weib_range = rx.size
 
     rx_weib = np.arange(1, weib_range+1).reshape((weib_range, 1))
 
@@ -391,11 +391,11 @@ def weibull_distribution(
     weib_dist /= np.sum(weib_dist)
 
     # reshape weib_dist to match the lenght of range
-    weib_dist = weib_dist[:len(rx)]
+    weib_dist = weib_dist[:rx.size]
 
     # generates a vector of Weibull probability distribution
     if dimensions == 1:
-        weib_parameter = cp.Parameter(shape=(len(rx), 1))
+        weib_parameter = cp.Parameter(shape=(rx.size, 1))
         weib_parameter.value = weib_dist
 
     # generates a matrix of Weibull probability distribution
@@ -403,10 +403,10 @@ def weibull_distribution(
     # WARNING: per implementare un lifetime che varia di anno in anno, bisogna
     # ricalcolare weib_dist ogni anno!
     elif dimensions == 2:
-        weib_parameter = cp.Parameter(shape=(len(rx), len(rx)))
-        weib_dist_matrix = np.zeros((len(rx), len(rx)))
+        weib_parameter = cp.Parameter(shape=(rx.size, rx.size))
+        weib_dist_matrix = np.zeros((rx.size, rx.size))
 
-        for i in range(len(rx)):
+        for i in range(rx.size):
             weib_dist_rolled = np.roll(weib_dist, i)
             weib_dist_rolled[:i] = 0
             weib_dist_matrix[:, i] = weib_dist_rolled.flatten()

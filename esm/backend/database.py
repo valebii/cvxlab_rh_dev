@@ -553,6 +553,13 @@ class Database:
                                 excel_file_name=file_name,
                             )
                         )
+
+                        if table_key not in data.keys():
+                            msg = f"Table key '{table_key}' not found as tab name " \
+                                f"in xlsx file '{file_name}'."
+                            self.logger.error(msg)
+                            raise exc.MissingDataError(msg)
+
                         self.sqltools.dataframe_to_table(
                             table_name=table_key,
                             dataframe=data[table_key],
