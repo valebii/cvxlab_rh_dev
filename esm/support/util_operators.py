@@ -115,7 +115,7 @@ def matrix_inverse(matrix: cp.Parameter | cp.Expression) -> cp.Parameter:
 
 def shift(
         set_length: cp.Constant,
-        shift_value: cp.Parameter,
+        shift_values: cp.Parameter,
 ) -> cp.Parameter:
     """
     Generate a square matrix of specified dimension, with all zeros except a
@@ -137,45 +137,64 @@ def shift(
         TypeError: If passed dimension is not an iterable containing integers.
     """
     if not isinstance(set_length, cp.Constant) or \
-            not isinstance(shift_value, cp.Parameter):
+            not isinstance(shift_values, cp.Parameter):
         raise TypeError(
             "Passed set_length must be a cvxpy Constant, "
             "shift_value must be a cvxpy Parameter.")
 
     # extract values from cvxpy parameters
     set_length: np.ndarray = set_length.value
-    shift_value: np.ndarray | csr_matrix = shift_value.value
+    shift_values: np.ndarray | csr_matrix = shift_values.value
 
     # checks
-    if set_length is None or shift_value is None:
+    if set_length is None or shift_values is None:
         raise ValueError(
             "Values assigned to set_length and shift_value cannot be None.")
 
     if not isinstance(set_length, np.ndarray) or \
-            not isinstance(shift_value, (np.ndarray, csr_matrix)):
+            not isinstance(shift_values, (np.ndarray, csr_matrix)):
         raise TypeError(
             "Values Set length and shift value must be numpy arrays.")
 
-    err_msg = []
-
-    # WARNING: set_length and shift_value must be scalars
     if not set_length.size == 1:
-        err_msg.append(
-            "Set length must be a scalar. "
-            f"Passed dimension: '{set_length.shape}'.")
+        raise ValueError(
+            "Set length must be a scalar. Passed dimension: "
+            f"'{set_length.shape}'.")
 
-    if not shift_value.size == 1:
-        err_msg.append(
-            "Shift value must be a scalar. "
-            f"Passed dimension: '{shift_value.shape}'.")
-
-    if err_msg:
-        raise ValueError("\n".join(err_msg))
-
-    # define shift_matrix
     sl: int = int(set_length[0, 0])
-    sv: int = int(shift_value[0, 0])
-    matrix = np.eye(N=sl, k=-sv)
+
+    # case of scalar shift value
+    if shift_values.size == 1:
+        sv: int = int(shift_values[0, 0])
+        matrix = np.eye(N=sl, k=-sv)
+
+    # case of vector shift values
+    else:
+        if shift_values.size != sl:
+            raise ValueError(
+                "Shift values vector must have the same size as set length. "
+                f"Passed shift values size: '{shift_values.size}'; "
+                f"set length: '{sl}'.")
+
+        matrix = np.zeros((sl, sl))
+        shift_values = shift_values.squeeze()
+
+        for i in range(sl):
+            sv: int = int(shift_values[i])
+
+            if sv > 0:
+                # downward shift, ensuring it stays in bounds
+                if i + sv < sl:
+                    matrix[i + sv, i] = 1
+
+            elif sv < 0:
+                # upward shift, ensuring it stays in bounds
+                if i + sv >= 0:
+                    matrix[i + sv, i] = 1
+
+            else:
+                # no shift, set the diagonal to 1
+                matrix[i, i] = 1
 
     return cp.Parameter(shape=(sl, sl), value=matrix)
 
