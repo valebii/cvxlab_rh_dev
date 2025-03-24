@@ -11,7 +11,7 @@ inverses.
 """
 
 from typing import Optional
-from scipy.sparse import csr_matrix
+from scipy.sparse import issparse
 import numpy as np
 import cvxpy as cp
 
@@ -93,19 +93,24 @@ def matrix_inverse(matrix: cp.Parameter | cp.Expression) -> cp.Parameter:
     if not isinstance(matrix, (cp.Parameter, cp.Expression)):
         raise TypeError("Passed item must be a cvxpy Parameter or Expression.")
 
-    matrix_val: np.ndarray = matrix.value
+    matrix_val = matrix.value
 
     if matrix_val is None:
         raise ValueError("Passed matrix values cannot be None.")
 
-    if not isinstance(matrix_val, np.ndarray) or len(matrix_val.shape) != 2:
-        raise ValueError("Passed item is not a matrix.")
+    if not isinstance(matrix_val, np.ndarray) and not issparse(matrix_val):
+        raise TypeError(
+            "Type expected: numpy array or scipy sparse array. "
+            f"Passed type: {type(matrix_val)}.")
 
-    if matrix_val.shape[0] != matrix_val.shape[1]:
+    if len(matrix_val.shape) != 2 and matrix_val.shape[0] != matrix_val.shape[1]:
         raise ValueError("Passed item is not a square matrix.")
 
     try:
-        inverse = np.linalg.inv(matrix_val)
+        if issparse(matrix_val):
+            inverse = np.linalg.inv(matrix_val.toarray())
+        else:
+            inverse = np.linalg.inv(matrix_val)
     except np.linalg.LinAlgError as exc:
         raise ValueError(
             "Passed matrix is singular and cannot be inverted.") from exc
@@ -144,17 +149,22 @@ def shift(
 
     # extract values from cvxpy parameters
     set_length: np.ndarray = set_length.value
-    shift_values: np.ndarray | csr_matrix = shift_values.value
+    shift_values = shift_values.value
 
     # checks
     if set_length is None or shift_values is None:
         raise ValueError(
             "Values assigned to set_length and shift_value cannot be None.")
 
-    if not isinstance(set_length, np.ndarray) or \
-            not isinstance(shift_values, (np.ndarray, csr_matrix)):
+    if not isinstance(set_length, np.ndarray):
         raise TypeError(
-            "Values Set length and shift value must be numpy arrays.")
+            "Set length value must be a numpy array. Passed type: "
+            f"'{type(set_length)}'.")
+
+    if not isinstance(shift_values, np.ndarray) and not issparse(shift_values):
+        raise TypeError(
+            "Shift value must be numpy arrays or a scipy sparse matrix."
+            f"Passed type: '{type(shift_values)}'.")
 
     if not set_length.size == 1:
         raise ValueError(
