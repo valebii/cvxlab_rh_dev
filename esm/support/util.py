@@ -16,7 +16,6 @@ required for successful model operation, providing robust tools for data
 manipulation and validation.
 """
 
-from os import error
 import pprint as pp
 import itertools as it
 import numpy as np
@@ -377,7 +376,6 @@ def check_dataframes_equality(
         cols_order_matters: bool = False,
         rows_order_matters: bool = False,
         homogeneous_num_types: bool = True,
-
 ) -> bool:
     """
     Check the equality of multiple DataFrames while optionally skipping 
