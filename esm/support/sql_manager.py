@@ -670,76 +670,110 @@ class SQLManager:
         self.check_table_exists(table_name)
         self.validate_table_dataframe_headers(table_name, dataframe)
 
+        if dataframe.empty:
+            msg = "Passed DataFrame is empty. No data inserted into table."
+            self.logger.warning(msg)
+            return
+
         id_field = Constants.Labels.ID_FIELD['id'][0]
         values_field = Constants.Labels.VALUES_FIELD['values'][0]
-        table_fields = self.get_table_fields(table_name)['labels']
-        table_primary_column = self.get_primary_column_name(table_name)
         table_existing_entries = self.count_table_data_entries(table_name)
         dataframe_existing = self.table_to_dataframe(table_name)
 
-        # add primary key column if not present
-        if table_primary_column not in dataframe.columns.tolist():
-            dataframe.insert(
-                loc=0,
-                column=table_primary_column,
-                value=range(1, len(dataframe) + 1)
-            )
+        # check if dataframes columns are matching (except id_field)
+        if not util.check_dataframe_columns_equality(
+            df_list=[dataframe, dataframe_existing],
+            skip_columns=[id_field],
+        ):
+            msg = f"Passed DataFrame and SQLite table '{table_name}' " \
+                "mismatch in column headers."
+            self.logger.error(msg)
+            raise exc.MissingDataError(msg)
 
         # check if table is already up to date
         if util.check_dataframes_equality(
             df_list=[dataframe_existing, dataframe],
-            skip_columns=[id_field],
         ):
             if not suppress_warnings:
                 self.logger.warning(
                     f"SQLite table {table_name} already up to date.")
             return
 
-        # reorder columns to match table schema
-        if not all(dataframe.columns == table_fields):
-            dataframe = dataframe[table_fields]
-
-        # convert all entries to strings except for values field
+        # convert all entries to strings except for id and values field
         for col in dataframe.columns:
-            if col not in (values_field, table_primary_column):
+            if col not in (id_field, values_field):
                 dataframe.loc[:, col] = dataframe[col].astype(str)
 
-        # define appropriate query based on table state
-        if table_existing_entries == 0:
-            data = [tuple(row) for row in dataframe.values.tolist()]
-            placeholders = ', '.join(['?'] * len(table_fields))
-            query = f"INSERT INTO {table_name} ({', '.join(table_fields)}) VALUES ({placeholders})"
+        # case of no entries in existing table or case of 'overwrite' action
+        if table_existing_entries == 0 or action == 'overwrite':
 
-        elif table_existing_entries > 0:
-
-            if action == 'update':
-                # case of passed dataframe has more entry then existing table not possible
-                if len(dataframe) > len(dataframe_existing):
-                    msg = "Passed dataframe length greater than existing data table."
-                    self.logger.error(msg)
-                    raise exc.OperationalError(msg)
-
-                # case where all or a part of data entries need to be replaced
-                else:
-                    data = [tuple(row) for row in dataframe.values.tolist()]
-                    placeholders = ', '.join(['?'] * len(table_fields))
-                    query = f"INSERT OR REPLACE INTO {table_name} VALUES ({placeholders})"
-
-            elif action == 'overwrite':
-                if not self.delete_table_column_data(table_name, force_overwrite):
+            if table_existing_entries > 0:
+                if not self.delete_table_column_data(
+                    table_name,
+                    force_overwrite
+                ):
                     self.logger.debug(
                         f"SQLite table '{table_name}' - original data NOT erased.")
                     return
 
-                data = [tuple(row) for row in dataframe.values.tolist()]
-                placeholders = ', '.join(['?'] * len(table_fields))
-                query = f"INSERT INTO {table_name} VALUES ({placeholders})"
+            if id_field not in dataframe.columns:
+                util.add_column_to_dataframe(
+                    dataframe=dataframe,
+                    column_header=id_field,
+                    column_values=range(len(dataframe)),
+                    position=0,
+                )
 
-            else:
-                msg = f"Action '{action}' not allowed. Available actions: "\
-                    "'update', 'overwrite'."
+            data = [tuple(row) for row in dataframe.values.tolist()]
+            placeholders = ', '.join(['?'] * len(dataframe.columns))
+            query = f"""
+                INSERT INTO {table_name} ({', '.join(
+                    f'"{col}"' for col in dataframe.columns
+                )}) 
+                VALUES ({placeholders})
+            """
+
+        # case where all or a part of data entries need to be replaced
+        elif table_existing_entries > 0 or action == 'update':
+
+            # case of passed dataframe has more entry then existing table
+            if len(dataframe) > len(dataframe_existing):
+                msg = "Passed dataframe length greater than existing data table."
                 self.logger.error(msg)
-                raise exc.SettingsError(msg)
+                raise exc.OperationalError(msg)
+
+            coordinates_cols = [
+                column for column in dataframe_existing.columns
+                if column not in [id_field, values_field]
+            ]
+
+            # merge dataframes to get a resulting dataframe with updated values
+            # from dataframe and id from dataframe_existing
+            if id_field in dataframe.columns:
+                dataframe = dataframe.drop(columns=id_field)
+
+            dataframe_with_id = dataframe.merge(
+                dataframe_existing[[id_field, *coordinates_cols]],
+                on=coordinates_cols,
+                how='left',
+            )
+
+            # reorder columns to match table schema
+            if not all(dataframe_with_id.columns == dataframe_existing.columns):
+                dataframe_with_id = dataframe_with_id[dataframe_existing.columns]
+
+            data = [tuple(row) for row in dataframe_with_id.values.tolist()]
+            placeholders = ', '.join(['?'] * len(dataframe_with_id.columns))
+            query = f"""
+                INSERT OR REPLACE INTO {table_name} 
+                VALUES ({placeholders})
+            """
+
+        else:
+            msg = f"Action '{action}' not allowed. Available actions: "\
+                "'update', 'overwrite'."
+            self.logger.error(msg)
+            raise exc.SettingsError(msg)
 
         self.execute_query(query=query, params=data, many=True)
 
@@ -858,8 +892,10 @@ class SQLManager:
                     raise TypeError(msg)
 
             conditions = " AND ".join(
-                [f"{key} IN ({', '.join(['?']*len(values))})"
-                 for key, values in filters_dict.items()]
+                [
+                    f"{key} IN ({', '.join(['?']*len(values))})"
+                    for key, values in filters_dict.items()
+                ]
             )
 
             flattened_values = [
@@ -876,6 +912,9 @@ class SQLManager:
         )
 
         dataframe = pd.DataFrame(data=table, columns=table_columns_labels)
+
+        # replace NaN with None
+        dataframe = dataframe.where(pd.notna(dataframe), None)
 
         if filters_dict and dataframe.empty:
             self.logger.warning(
