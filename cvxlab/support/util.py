@@ -375,6 +375,7 @@ def check_dataframes_equality(
         skip_columns: Optional[List[str]] = None,
         cols_order_matters: bool = False,
         rows_order_matters: bool = False,
+        homogeneous_num_types: bool = True,
 ) -> bool:
     """
     Check the equality of multiple DataFrames while optionally skipping 
@@ -408,6 +409,13 @@ def check_dataframes_equality(
 
         for dataframe in df_list_copy:
             dataframe.drop(columns=skip_columns, errors='ignore', inplace=True)
+
+    # Convert all numeric values to float64 for consistent comparisons
+    if homogeneous_num_types:
+        df_list_copy = [
+            df.apply(pd.to_numeric, errors='ignore')
+            for df in df_list_copy
+        ]
 
     shapes = set(df.shape for df in df_list_copy)
     if len(shapes) > 1:

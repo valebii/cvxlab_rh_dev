@@ -59,6 +59,7 @@ class Constants:
         INPUT_DATA_FILE = 'input_data.xlsx'
         DATA_FILES_EXTENSION = '.xlsx'
         SQLITE_DATABASE_FILE = 'database.db'
+        SQLITE_DATABASE_FILE_BKP = 'database_bkp.db'
         SQLITE_DATABASE_FILE_TEST = 'database_expected.db'
         TUTORIAL_FILE_NAME = 'API_usage_guide.ipynb'
         TEMPLATES_DIR = 'default'
@@ -196,7 +197,7 @@ class Constants:
         ALLOWED_CONSTANTS = {
             'sum_vector': (np.ones, {}),
             'identity': (np.eye, {}),
-            'set_length': (np.size, {}),
+            'set_length': (np.max, {}),
             'arange_1': (util_constants.arange, {}),
             'arange_0': (util_constants.arange, {'start_from': 0}),
             'lower_triangular': (util_constants.tril, {}),
@@ -228,8 +229,11 @@ class Constants:
 
     class NumericalSettings:
         """Settings for numerical solvers and tolerances."""
-        ALLOWED_VALUES_TYPES = (int, float)
+        # ALLOWED_VALUES_TYPES = (int, float)
         STD_VALUES_TYPE = float
+        ALLOWED_VALUES_TYPES = (
+            int, float, np.dtype('float64'), np.dtype('int64'))
+        ALLOWED_TEXT_TYPE = str
         ALLOWED_SOLVERS = cp.installed_solvers()
         DEFAULT_SOLVER = 'GUROBI'
         TOLERANCE_TESTS_RESULTS_CHECK = 0.02

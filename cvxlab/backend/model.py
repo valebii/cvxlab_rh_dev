@@ -539,6 +539,7 @@ class Model:
 
     def load_results_to_database(
         self,
+        scenarios_idx: Optional[List[int] | int] = None,
         force_overwrite: bool = False,
         suppress_warnings: bool = False,
     ) -> None:
@@ -563,7 +564,10 @@ class Model:
             self.logger.warning(msg)
         else:
             self.core.cvxpy_endogenous_data_to_database(
-                force_overwrite, suppress_warnings)
+                scenarios_idx=scenarios_idx,
+                force_overwrite=force_overwrite,
+                suppress_warnings=suppress_warnings
+            )
 
     def update_database_and_problem(
             self,

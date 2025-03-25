@@ -585,7 +585,7 @@ class Variable:
 
         elif value_type == 'set_length':
             if self.is_vector:
-                result = factory_function(self.dims_items[0], **args)
+                result = factory_function(self.shape_size, **args)
                 result_array = np.array(result)
                 if result_array.ndim == 0:
                     result_array = result_array.reshape(-1, 1)

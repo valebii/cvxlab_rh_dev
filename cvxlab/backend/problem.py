@@ -327,6 +327,7 @@ class Problem:
 
     def data_to_cvxpy_variable(
             self,
+            var_key: str,
             cvxpy_var: cp.Parameter,
             data: pd.DataFrame | np.ndarray,
     ) -> None:
@@ -356,16 +357,20 @@ class Problem:
 
         if isinstance(data, pd.DataFrame):
             if data.empty:
-                err_msg.append("Provided DataFrame is empty.")
+                err_msg.append(
+                    f"Variable '{var_key}' | Provided DataFrame is empty.")
             data_values = data.values
 
         elif isinstance(data, np.ndarray):
             if data.size == 0:
-                err_msg.append("Provided numpy array is empty.")
+                err_msg.append(
+                    f"Variable '{var_key}' | Provided numpy array is empty.")
             data_values = data
 
         else:
-            err_msg = "Supported data formats: pandas DataFrame or a numpy array."
+            err_msg.append(
+                f"Variable '{var_key}' | Supported data formats: pandas "
+                "DataFrame or a numpy array.")
 
         if err_msg:
             self.logger.error("\n".join(err_msg))
@@ -373,7 +378,8 @@ class Problem:
 
         # conversion to sparse matrix if data is sparse
         if util.is_sparse(data_values, sparse_threshold):
-            self.logger.debug("Converting data to sparse matrix.")
+            self.logger.debug(
+                f"Variable '{var_key}' | Converting data to sparse matrix.")
             data_values_converted = csr_matrix(data_values)
         else:
             data_values_converted = data_values

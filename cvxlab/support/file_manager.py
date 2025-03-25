@@ -22,6 +22,7 @@ import json
 import yaml
 
 import pandas as pd
+import numpy as np
 
 from cvxlab.constants import Constants
 from cvxlab.log_exc import exceptions as exc
@@ -390,6 +391,49 @@ class FileManager:
         except shutil.Error as msg:
             self.logger.error(f"Error copying items: {msg}")
 
+    def rename_file(
+            self,
+            dir_path: str | Path,
+            name_old: str,
+            name_new: str,
+            file_extension: Optional[str] = None,
+    ) -> None:
+        """
+        Renames a file in the specified directory.
+
+        Args:
+            dir_path (str | Path): The directory path where the file is located.
+            name_old (str): The current name of the file (including extension).
+            name_new (str): The new name for the file (including extension).
+
+        Raises:
+            FileNotFoundError: If the file does not exist.
+            FileExistsError: If a file with the new name already exists.
+        """
+        dir_path = Path(dir_path)
+
+        if file_extension:
+            name_old = f"{name_old}.{file_extension.lstrip('.')}"
+            name_new = f"{name_new}.{file_extension.lstrip('.')}"
+        else:
+            if '.' not in name_old or '.' not in name_new:
+                raise ValueError(
+                    "File extension must be specified when not included "
+                    "in the file name.")
+
+        file_path = dir_path / name_old
+        new_file_path = dir_path / name_new
+
+        if not file_path.exists():
+            raise FileNotFoundError(f"File '{file_path}' does not exist.")
+
+        if new_file_path.exists():
+            raise FileExistsError(
+                f"A file named '{name_new}' already exists. Operation aborted.")
+
+        file_path.rename(new_file_path)
+        self.logger.debug(f"File '{name_old}' renamed to '{name_new}'.")
+
     def dict_to_excel_headers(
             self,
             dict_name: Dict[str, Any],
@@ -539,6 +583,7 @@ class FileManager:
             excel_file_dir_path: Path | str,
             empty_data_fill: Optional[Any] = None,
             set_values_type: bool = True,
+            values_normalization: bool = True,
     ) -> Dict[str, pd.DataFrame]:
         """
         Reads an Excel file composed of multiple tabs and returns a dictionary 
@@ -572,16 +617,41 @@ class FileManager:
             self.logger.error(f'{excel_file_name} does not exist.')
             raise FileNotFoundError(f"{excel_file_name} does not exist.")
 
-        df_dict = pd.read_excel(io=file_path, sheet_name=None)
+        try:
+            df_dict = pd.read_excel(io=file_path, sheet_name=None)
+        except Exception as error:
+            msg = f"Error reading Excel file: {str(error)}"
+            self.logger.error(msg)
+            raise exc.OperationalError(msg)
 
-        for dataframe in df_dict.values():
-            for col in dataframe.columns:
+        if not values_normalization:
+            return df_dict
 
-                if col == values_name:
-                    dataframe[col] = dataframe[col].astype(values_dtype)
+        for df_key, dataframe in df_dict.items():
+            try:
+                # Convert 'values' column if needed
+                if set_values_type and values_name in dataframe.columns:
+                    dataframe[values_name] = \
+                        dataframe[values_name].astype(values_dtype)
 
+                # Explicitly replace all NaN types (including numpy.float64('nan'))
+                # with None and then replace NaN with None
+                dataframe.replace({pd.NA: None, np.nan: None}, inplace=True)
+
+                # replace None with empty_data_fill
                 if empty_data_fill is not None:
-                    dataframe.fillna(empty_data_fill)
+                    dataframe.fillna(empty_data_fill, inplace=True)
+
+                df_dict[df_key] = dataframe
+
+            except ValueError as ve:
+                msg = f"Normalization error | xlsx sheet '{df_key}' | {str(ve)}"
+                self.logger.error(msg)
+                raise exc.OperationalError(msg)
+            except Exception as e:
+                msg = f"Unexpected error | xlsx sheet '{df_key}' | {str(e)}"
+                self.logger.error(msg)
+                raise exc.OperationalError(msg)
 
         self.logger.debug(f"Excel file '{excel_file_name}' loaded.")
         return df_dict
