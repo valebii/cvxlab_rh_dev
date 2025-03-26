@@ -1,4 +1,4 @@
-name: esm
+name: cvxlab
 channels:
   - defaults
 dependencies:

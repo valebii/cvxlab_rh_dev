@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
 
-project = 'CVXlab'
+project = 'cvxlab'
 author = 'Your Name'
 release = '0.1.0'
 

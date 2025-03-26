@@ -1,7 +1,7 @@
-.. CVXlab documentation master file, created by
+.. cvxlab documentation master file, created by
    sphinx-quickstart on Thu Oct 14 2021.
 
-Welcome to CVXlab's documentation!
+Welcome to cvxlab's documentation!
 =====================================
 
 .. toctree::

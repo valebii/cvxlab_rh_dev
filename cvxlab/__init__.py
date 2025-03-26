@@ -1,5 +1,5 @@
 """
-CVXlab - A Python-embedded, open-source modeling framework able to generate and 
+cvxlab - A Python-embedded, open-source modeling framework able to generate and 
 to solve convex numerical optimization problems.
 ===============================================================================
 
