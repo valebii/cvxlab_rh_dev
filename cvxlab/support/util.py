@@ -18,13 +18,14 @@ manipulation and validation.
 
 import pprint as pp
 import itertools as it
+import numpy as np
 import pandas as pd
 
 from collections.abc import Iterable
 from copy import deepcopy
 from typing import Dict, List, Any, Literal, Optional, Tuple
 
-from esm.support import util_text
+from cvxlab.support import util_text
 
 
 def prettify(item: dict) -> None:
@@ -374,6 +375,7 @@ def check_dataframes_equality(
         skip_columns: Optional[List[str]] = None,
         cols_order_matters: bool = False,
         rows_order_matters: bool = False,
+        homogeneous_num_types: bool = True,
 ) -> bool:
     """
     Check the equality of multiple DataFrames while optionally skipping 
@@ -407,6 +409,13 @@ def check_dataframes_equality(
 
         for dataframe in df_list_copy:
             dataframe.drop(columns=skip_columns, errors='ignore', inplace=True)
+
+    # Convert all numeric values to float64 for consistent comparisons
+    if homogeneous_num_types:
+        df_list_copy = [
+            df.apply(pd.to_numeric, errors='ignore')
+            for df in df_list_copy
+        ]
 
     shapes = set(df.shape for df in df_list_copy)
     if len(shapes) > 1:
@@ -906,37 +915,48 @@ def remove_empty_items_from_dict(
     return _remove_items(dictionary)
 
 
-def merge_dicts(dicts_list: List[Dict]) -> Dict:
+def merge_dicts(
+        dicts_list: List[Dict],
+        unique_values: bool = False,
+) -> Dict[str, List[Any]]:
     """
-    Merge a list of dictionaries into a single dictionary. If a key appears in 
-    multiple dictionaries, its values are combined into a list.
+    Merges a list of dictionaries into a single dictionary.
+
+    - If a key appears in multiple dictionaries, its values are combined into a list.
+    - If `unique_values` is True, ensures values are unique per key.
 
     Args:
-        dicts_list (List[Dict]): A list of dictionaries to merge.
+        dicts_list (List[Dict[str, Any]]): A list of dictionaries to merge.
+        unique_values (bool): If True, ensures unique values per key. Default is False.
 
     Returns:
-        Dict: A single dictionary with merged keys and values.
+        Dict[str, List[Any]]: A merged dictionary with keys combined and values in lists.
     """
     merged = {}
 
-    for d in dicts_list:
-        if d is None:
-            d = {}
+    for dictionary in dicts_list:
+        if dictionary is None:
+            dictionary = {}
 
-        for key, value in d.items():
-            if value is not None:
-                if key in merged:
-                    if isinstance(merged[key], list):
-                        merged[key].append(value)
-                    else:
-                        merged[key] = [merged[key], value]
+        for key, value in dictionary.items():
+
+            if value is None:
+                continue
+
+            if not isinstance(value, Iterable) or \
+                    isinstance(value, (str, bytes)):
+                value = [value]
+
+            if key not in merged:
+                merged[key] = list(value) if not unique_values else set(value)
+
+            else:
+                if unique_values:
+                    merged[key].update(value)  # Use set to avoid duplicates
                 else:
-                    if not isinstance(value, list):
-                        merged[key] = list([value])
-                    else:
-                        merged[key] = value
+                    merged[key].extend(value)  # Allow duplicates
 
-    return merged
+    return {key: list(values) for key, values in merged.items()}
 
 
 def pivot_dataframe_to_data_structure(
@@ -944,6 +964,7 @@ def pivot_dataframe_to_data_structure(
     primary_key: Optional[str | int] = None,
     secondary_key: Optional[str | int] = None,
     merge_dict: bool = False,
+    skip_process_str: bool = False,
 ) -> dict:
 
     data_structure = {}
@@ -968,8 +989,11 @@ def pivot_dataframe_to_data_structure(
                 break
 
             value = row[column]
-            if value:
-                inner_dict[column] = util_text.process_str(value)
+            if value is not None:
+                if not skip_process_str:
+                    inner_dict[column] = util_text.process_str(value)
+                else:
+                    inner_dict[column] = value
 
         if merge_dict:
             data_structure[key] = merge_dicts(
@@ -998,7 +1022,7 @@ def pivot_dataframe_to_data_structure(
                     continue
 
                 value = row[column]
-                if value:
+                if value is not None:
                     inner_dict[column] = util_text.process_str(value)
 
             data_structure[outern_key][secondary_key][inner_key] = inner_dict
@@ -1026,3 +1050,27 @@ def transform_dict_none_to_values(dictionary: Dict, none_to: Any) -> Dict:
             result[key] = value
 
     return result
+
+
+def is_sparse(array: np.ndarray, threshold: float) -> bool:
+    """
+    Checks if a numpy ndarray can be considered sparse based on a given threshold.
+
+    Parameters:
+        array (np.ndarray): The numpy array to check.
+        threshold (float): The proportion of zero elements required to consider
+            the array as sparse.
+
+    Returns:
+        bool: True if the array is sparse, False otherwise.
+    """
+    total_elements = array.size
+    zero_elements = np.count_nonzero(array == 0)
+    proportion_zero = zero_elements / total_elements
+
+    if proportion_zero == 1:
+        return False
+    elif proportion_zero >= threshold:
+        return True
+    else:
+        return False

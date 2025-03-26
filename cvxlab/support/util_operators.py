@@ -10,145 +10,10 @@ such as generating special matrices, reshaping arrays, and calculating matrix
 inverses.
 """
 
-from typing import Iterable, Tuple
+from typing import Optional
+from scipy.sparse import issparse
 import numpy as np
-import pandas as pd
 import cvxpy as cp
-
-
-def tril(dimension: Tuple[int]) -> np.array:
-    """
-    Generate a square matrix with ones in the lower triangular region
-    (including the diagonal) and zeros elsewhere.
-
-    Parameters:
-        dimension (Tuple[int]): The dimension of the matrix row/col.
-
-    Returns:
-        np.ndarray: A square matrix with ones in the lower triangular region 
-            and zeros elsewhere.
-
-    Raises:
-        ValueError: If passed dimension is not greater than zero.
-        TypeError: If passed dimension is not an iterable containing integers.
-    """
-    if not isinstance(dimension, Tuple) and not \
-            all(isinstance(i, int) for i in dimension):
-        raise TypeError(
-            "Passed dimension must be a tuple containing integers.")
-
-    if any(i < 0 for i in dimension):
-        raise ValueError(
-            "Passed dimension must be integers greater than zero.")
-
-    if len(dimension) != 2 or not any(i == 1 for i in dimension):
-        raise ValueError(
-            "Passed dimension must have at least one element equal to 1 (it "
-            "must represent a vector.")
-
-    size = max(dimension)
-    matrix = np.tril(np.ones((size, size)))
-    np.fill_diagonal(matrix, 1)
-
-    return matrix
-
-
-def identity_rcot(
-        related_dims_map: pd.DataFrame,
-        rows_order: list[str],
-        cols_order: list[str],
-) -> np.ndarray:
-    """
-    Generate a special identity matrix from a map of columns and rows items 
-    provided by a 'related_dims_map' dataframe. 
-
-    Parameters:
-        related_dims_map: pandas DataFrame containing rows and corresponding
-            columns items.
-
-    Returns:
-        numpy ndarray containing the special identity matrix.
-
-    Raises:
-        ValueError: If 'related_dims_map' is not a DataFrame or if it does not 
-            contain 'rows' and 'cols' columns.
-    """
-    if not isinstance(related_dims_map, pd.DataFrame):
-        raise ValueError("'related_dims_map' must be a pandas DataFrame.")
-
-    if not {'rows', 'cols'}.issubset(related_dims_map.columns):
-        raise ValueError(
-            "'related_dims_map' must contain 'rows' and 'cols' columns labels.")
-
-    error_list = []
-    if not set(rows_order).issubset(related_dims_map['rows']):
-        error_list.append("'rows_order' do not match 'related_dims_map.rows'.")
-    if not set(cols_order).issubset(related_dims_map['cols']):
-        error_list.append("'cols_order' do not match 'related_dims_map.cols'.")
-    if error_list:
-        raise ValueError("\n".join(error_list))
-
-    related_dims_map['value'] = 1
-
-    pivot_df = related_dims_map.pivot_table(
-        index='rows',
-        columns='cols',
-        values='value',
-        aggfunc='sum'
-    ).fillna(0).astype(int)
-
-    pivot_df_reordered = pivot_df.reindex(
-        index=rows_order,
-        columns=cols_order,
-        fill_value=0
-    )
-
-    return pivot_df_reordered.values
-
-
-def arange(
-        shape_size: Iterable[int],
-        start_from: int = 1,
-        order: str = 'F',
-) -> np.ndarray:
-    """
-    Generate a reshaped array with values ranging from 'start_from' to 
-    'start_from + total_elements'.
-
-    Parameters:
-        shape_size (Iterable[int]): The shape of the output array.
-        start_from (int, optional): The starting value for the range. 
-            Defaults to 1.
-        order (str, optional): The order of the reshaped array. 
-            Defaults to 'F'.
-
-    Returns:
-        np.ndarray: The reshaped array with values ranging from 'start_from' 
-            to 'start_from + total_elements'.
-
-    Raises:
-        ValueError: If 'shape_size' is not an iterable of integers, 
-            'start_from' is not an integer, or 'order' is not a string.
-        ValueError: If 'order' is not 'C' or 'F'.
-    """
-    if not isinstance(shape_size, Iterable) or \
-            not all(isinstance(i, int) for i in shape_size):
-        raise ValueError("'shape_size' must be an iterable of integers.")
-
-    if not isinstance(start_from, int):
-        raise ValueError("'start_from' must be an integer.")
-
-    if not isinstance(order, str):
-        raise ValueError("'order' must be a string.")
-
-    if order not in ['C', 'F']:
-        raise ValueError("'order' must be either 'C' or 'F'.")
-
-    total_elements = np.prod(shape_size)
-    values = np.arange(start_from, start_from+total_elements)
-    reshaped_array = np.reshape(a=values, newshape=shape_size, order=order)
-
-    return reshaped_array
 
 
 def power(
@@ -228,42 +93,45 @@ def matrix_inverse(matrix: cp.Parameter | cp.Expression) -> cp.Parameter:
     if not isinstance(matrix, (cp.Parameter, cp.Expression)):
         raise TypeError("Passed item must be a cvxpy Parameter or Expression.")
 
-    matrix_val: np.ndarray = matrix.value
+    matrix_val = matrix.value
 
     if matrix_val is None:
         raise ValueError("Passed matrix values cannot be None.")
 
-    if not isinstance(matrix_val, np.ndarray) or len(matrix_val.shape) != 2:
-        raise ValueError("Passed item is not a matrix.")
+    if not isinstance(matrix_val, np.ndarray) and not issparse(matrix_val):
+        raise TypeError(
+            "Type expected: numpy array or scipy sparse array. "
+            f"Passed type: {type(matrix_val)}.")
 
-    if matrix_val.shape[0] != matrix_val.shape[1]:
+    if len(matrix_val.shape) != 2 and matrix_val.shape[0] != matrix_val.shape[1]:
         raise ValueError("Passed item is not a square matrix.")
 
     try:
-        inverse = np.linalg.inv(matrix_val)
+        if issparse(matrix_val):
+            inverse = np.linalg.inv(matrix_val.toarray())
+        else:
+            inverse = np.linalg.inv(matrix_val)
     except np.linalg.LinAlgError as exc:
         raise ValueError(
             "Passed matrix is singular and cannot be inverted.") from exc
 
     return cp.Parameter(shape=matrix_val.shape, value=inverse)
 
-# cambiare gli argomenti in parameters keys
-
 
 def shift(
-        dimension: Tuple[int],
-        shift_value: int,
-) -> np.array:
+        set_length: cp.Constant,
+        shift_values: cp.Parameter,
+) -> cp.Parameter:
     """
     Generate a square matrix of specified dimension, with all zeros except a
     diagonal of ones that is shifted with respect to the main diagonal by a 
     specified shift_value. A positive shift_value results in a downward shift, 
     while a negative shift_value results in an upward shift. If shift_value is 0, 
-    the function returns an identity matrix.
+    identity matrix is returned.
 
     Parameters:
         dimension (Tuple[int]): The dimension of the matrix row/col.
-        shift_value (int): The number of positions to shift the diagonal.
+        shift_value (int): (scalar) the number of positions to shift the diagonal.
 
     Returns:
         np.ndarray: A square matrix with a diagonal of ones downward shifted by 
@@ -273,39 +141,161 @@ def shift(
         ValueError: If passed dimension is not greater than zero.
         TypeError: If passed dimension is not an iterable containing integers.
     """
-    
-    if not isinstance(dimension, Tuple) and not \
-            all(isinstance(i, int) for i in dimension):
+    if not isinstance(set_length, cp.Constant) or \
+            not isinstance(shift_values, cp.Parameter):
         raise TypeError(
-            "Passed dimension must be a tuple containing integers.")
+            "Passed set_length must be a cvxpy Constant, "
+            "shift_value must be a cvxpy Parameter.")
 
-    if not isinstance(shift_value, int):
-        raise TypeError("Shift value must be an integer.")
+    # extract values from cvxpy parameters
+    set_length: np.ndarray = set_length.value
+    shift_values = shift_values.value
 
-    if any(i < 0 for i in dimension):
+    # checks
+    if set_length is None or shift_values is None:
         raise ValueError(
-            "Passed dimension must be integers greater than zero.")
+            "Values assigned to set_length and shift_value cannot be None.")
 
-    if len(dimension) != 2 or not any(i == 1 for i in dimension):
+    if not isinstance(set_length, np.ndarray):
+        raise TypeError(
+            "Set length value must be a numpy array. Passed type: "
+            f"'{type(set_length)}'.")
+
+    if not isinstance(shift_values, np.ndarray) and not issparse(shift_values):
+        raise TypeError(
+            "Shift value must be numpy arrays or a scipy sparse matrix."
+            f"Passed type: '{type(shift_values)}'.")
+
+    if not set_length.size == 1:
         raise ValueError(
-            "Passed dimension must have at least one element equal to 1 (it "
-            "must represent a vector.")
+            "Set length must be a scalar. Passed dimension: "
+            f"'{set_length.shape}'.")
 
-    size = max(dimension)
+    sl: int = int(set_length[0, 0])
 
-    if abs(shift_value) >= size:
+    # case of scalar shift value
+    if shift_values.size == 1:
+        sv: int = int(shift_values[0, 0])
+        matrix = np.eye(N=sl, k=-sv)
+
+    # case of vector shift values
+    else:
+        if shift_values.size != sl:
+            raise ValueError(
+                "Shift values vector must have the same size as set length. "
+                f"Passed shift values size: '{shift_values.size}'; "
+                f"set length: '{sl}'.")
+
+        matrix = np.zeros((sl, sl))
+        shift_values = shift_values.squeeze()
+
+        for i in range(sl):
+            sv: int = int(shift_values[i])
+
+            if sv > 0:
+                # downward shift, ensuring it stays in bounds
+                if i + sv < sl:
+                    matrix[i + sv, i] = 1
+
+            elif sv < 0:
+                # upward shift, ensuring it stays in bounds
+                if i + sv >= 0:
+                    matrix[i + sv, i] = 1
+
+            else:
+                # no shift, set the diagonal to 1
+                matrix[i, i] = 1
+
+    return cp.Parameter(shape=(sl, sl), value=matrix)
+
+
+def annuity(
+        period_length: cp.Parameter | cp.Constant,
+        tech_lifetime: cp.Parameter,
+        interest_rate: Optional[cp.Parameter] = None,
+) -> cp.Parameter:
+    """ 
+    Calculate the annuity factor for a given period length, lifetime, and
+    interest rate. The annuity factor is used to calculate the present value of
+    an annuity, which is a series of equal payments made at regular intervals.
+
+    Parameters:
+        period_length (cp.Parameter): The length of the period for which the
+            annuity factor is calculated.
+            lifetime (cp.Parameter): The total number of periods over which the
+            annuity is paid.
+            interest_rate (cp.Parameter): The interest rate used to discount the
+            annuity payments.
+
+    Returns:
+        cp.Parameter: The annuity factor calculated based on the input parameters.
+    """
+    if not isinstance(period_length, (cp.Parameter, cp.Constant)) or \
+            not isinstance(tech_lifetime, cp.Parameter):
+        raise TypeError(
+            "Period length and lifetime must be cvxpy Parameters.")
+
+    if interest_rate is not None and not isinstance(interest_rate, cp.Parameter):
+        raise TypeError("Interest rate must be a cvxpy Parameter.")
+
+    # extract and check values from period_length and lifetime cvxpy parameters
+    pl: np.ndarray = period_length.value
+    lt: np.ndarray = tech_lifetime.value
+
+    if pl is None or lt is None:
         raise ValueError(
-            "Absolute value of shift_value must be less than the matrix order.")
+            "Values assigned to period_length and lifetime cannot be None.")
 
-    matrix = np.eye(size, k=-shift_value)
+    if not len(pl) == 1:
+        raise ValueError(
+            f"Period length must be a scalar. Passed shape: '{pl.shape}'.")
 
-    return matrix
+    if not len(lt) == 1:
+        raise ValueError(
+            f"Lifetime must be a scalar. Passed dimension: '{len(lt)}'.")
+
+    pl = int(pl[0][0])
+    lt = int(lt[0][0])
+
+    # extract and check values from interest_rate cvxpy parameter
+    if interest_rate is not None:
+        ir: np.ndarray = interest_rate.value
+    else:
+        ir: np.ndarray = np.zeros([1, pl])
+
+    if not 1 in ir.shape:
+        raise ValueError(
+            f"Interest rate must be a vector. Passed dimension: '{len(ir)}'.")
+
+    if ir.size != pl:
+        raise ValueError(
+            "Interest rate vector must have size equal to period length."
+            f"Passed interest rate size: '{ir.size}'; period length: '{pl}'.")
+
+    if ir.shape[0] != 1:
+        ir = ir.T
+
+    # calculate annuity matrix
+    annuity = np.zeros((pl, pl))
+
+    for row in range(pl):
+        for col in range(pl):
+            if col > row:
+                continue
+            elif (row - col) < lt:
+                if ir[0, col] == 0:
+                    annuity[row, col] = 1/lt
+                else:
+                    _ir = ir[0, col]
+                    annuity[row, col] = _ir*(1 + _ir)**lt / ((1 + _ir)**lt - 1)
+
+    return cp.Parameter(shape=(pl, pl), value=annuity)
 
 
 def weibull_distribution(
         scale_factor: cp.Parameter,
         shape_factor: cp.Parameter,
-        range_vector: cp.Constant,
+        range_vector: cp.Parameter | cp.Constant,
         dimensions: int,
         rounding: int = 2,
 ) -> cp.Parameter:
@@ -347,10 +337,12 @@ def weibull_distribution(
     """
     if not isinstance(scale_factor, cp.Parameter) or \
             not isinstance(shape_factor, cp.Parameter) or \
-            not isinstance(range_vector, cp.Constant):
+            not isinstance(range_vector, cp.Parameter | cp.Constant):
         raise TypeError(
-            "scale_factor and shape_factor must be cvxpy.Parameters, "
-            "range_vector must be cvxpy.Constant.")
+            "Custom function weibull_distribution() | scale_factor and "
+            "shape_factor must be cvxpy.Parameters, range_vector must be "
+            "cvxpy.Constant or cvxpy.Parameter."
+        )
 
     # extract values from cvxpy parameters
     sc: np.ndarray = scale_factor.value
@@ -372,15 +364,15 @@ def weibull_distribution(
     err_msg = []
 
     # WARNING: non è possibile avere sc e sh funzioni del tempo (rx)
-    if not len(sc) == 1:
+    if not sc.size == 1:
         err_msg.append(
             "Weibull scale factor must be a scalar. "
-            f"Passed dimension: '{len(sc)}'.")
+            f"Passed dimension: '{sc.shape}'.")
 
-    if not len(sh) == 1:
+    if not sh.size == 1:
         err_msg.append(
             "Weibull shape factor must be a scalar. "
-            f"Passed dimension: '{len(sh)}'.")
+            f"Passed dimension: '{sh.shape}'.")
 
     if dimensions not in [1, 2]:
         err_msg.append(
@@ -397,8 +389,8 @@ def weibull_distribution(
 
     # defining Weibull function range
     weib_range = int(sc[0, 0]) * 2
-    if weib_range <= len(rx):
-        weib_range = len(rx)
+    if weib_range <= rx.size:
+        weib_range = rx.size
 
     rx_weib = np.arange(1, weib_range+1).reshape((weib_range, 1))
 
@@ -409,11 +401,11 @@ def weibull_distribution(
     weib_dist /= np.sum(weib_dist)
 
     # reshape weib_dist to match the lenght of range
-    weib_dist = weib_dist[:len(rx)]
+    weib_dist = weib_dist[:rx.size]
 
     # generates a vector of Weibull probability distribution
     if dimensions == 1:
-        weib_parameter = cp.Parameter(shape=(len(rx), 1))
+        weib_parameter = cp.Parameter(shape=(rx.size, 1))
         weib_parameter.value = weib_dist
 
     # generates a matrix of Weibull probability distribution
@@ -421,10 +413,10 @@ def weibull_distribution(
     # WARNING: per implementare un lifetime che varia di anno in anno, bisogna
     # ricalcolare weib_dist ogni anno!
     elif dimensions == 2:
-        weib_parameter = cp.Parameter(shape=(len(rx), len(rx)))
-        weib_dist_matrix = np.zeros((len(rx), len(rx)))
+        weib_parameter = cp.Parameter(shape=(rx.size, rx.size))
+        weib_dist_matrix = np.zeros((rx.size, rx.size))
 
-        for i in range(len(rx)):
+        for i in range(rx.size):
             weib_dist_rolled = np.roll(weib_dist, i)
             weib_dist_rolled[:i] = 0
             weib_dist_matrix[:, i] = weib_dist_rolled.flatten()

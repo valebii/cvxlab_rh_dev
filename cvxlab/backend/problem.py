@@ -21,6 +21,8 @@ Key functionalities include:
 """
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from scipy.sparse import csr_matrix
+
 import re
 import warnings
 
@@ -28,14 +30,14 @@ import pandas as pd
 import numpy as np
 import cvxpy as cp
 
-from esm.backend.data_table import DataTable
-from esm.constants import Constants
-from esm.log_exc import exceptions as exc
-from esm.log_exc.logger import Logger
-from esm.support import util
-from esm.support.file_manager import FileManager
-from esm.support.dotdict import DotDict
-from esm.backend.index import Index, Variable
+from cvxlab.backend.data_table import DataTable
+from cvxlab.constants import Constants
+from cvxlab.log_exc import exceptions as exc
+from cvxlab.log_exc.logger import Logger
+from cvxlab.support import util
+from cvxlab.support.file_manager import FileManager
+from cvxlab.support.dotdict import DotDict
+from cvxlab.backend.index import Index, Variable
 
 
 class Problem:
@@ -325,6 +327,7 @@ class Problem:
 
     def data_to_cvxpy_variable(
             self,
+            var_key: str,
             cvxpy_var: cp.Parameter,
             data: pd.DataFrame | np.ndarray,
     ) -> None:
@@ -343,6 +346,8 @@ class Problem:
             ConceptualModelError: If the provided cvxpy_var is not a CVXPY Parameter.
             ValueError: If the provided data is not in a supported format.
         """
+        sparse_threshold = Constants.NumericalSettings.SPARSE_MATRIX_ZEROS_THRESHOLD
+
         if not isinstance(cvxpy_var, cp.Parameter):
             msg = "Data can only be assigned to exogenous variables."
             self.logger.error(msg)
@@ -352,20 +357,34 @@ class Problem:
 
         if isinstance(data, pd.DataFrame):
             if data.empty:
-                err_msg.append("Provided DataFrame is empty.")
-            cvxpy_var.value = data.values
+                err_msg.append(
+                    f"Variable '{var_key}' | Provided DataFrame is empty.")
+            data_values = data.values
 
         elif isinstance(data, np.ndarray):
             if data.size == 0:
-                err_msg.append("Provided numpy array is empty.")
-            cvxpy_var.value = data
+                err_msg.append(
+                    f"Variable '{var_key}' | Provided numpy array is empty.")
+            data_values = data
 
         else:
-            err_msg = "Supported data formats: pandas DataFrame or a numpy array."
+            err_msg.append(
+                f"Variable '{var_key}' | Supported data formats: pandas "
+                "DataFrame or a numpy array.")
 
         if err_msg:
             self.logger.error("\n".join(err_msg))
             raise exc.MissingDataError("\n".join(err_msg))
+
+        # conversion to sparse matrix if data is sparse
+        if util.is_sparse(data_values, sparse_threshold):
+            self.logger.debug(
+                f"Variable '{var_key}' | Converting data to sparse matrix.")
+            data_values_converted = csr_matrix(data_values)
+        else:
+            data_values_converted = data_values
+
+        cvxpy_var.value = data_values_converted
 
     def generate_constant_data(
             self,
@@ -392,6 +411,8 @@ class Problem:
             SettingsError: If the variable's value or type is not specified.
             TypeError: If the generated object is not a CVXPY Constant as expected.
         """
+        sparse_threshold = Constants.NumericalSettings.SPARSE_MATRIX_ZEROS_THRESHOLD
+
         if not variable.value or not variable.type:
             msg = "Type of constant value or type not specified for variable " \
                 f"'{variable_name}'"
@@ -403,10 +424,11 @@ class Problem:
             self.logger.error(msg)
             raise exc.SettingsError(msg)
 
-        self.logger.debug(
-            f"Generating constant '{variable_name}' as '{variable.value}'.")
-
         var_value = variable.define_constant(variable.value)
+
+        if util.is_sparse(var_value, sparse_threshold):
+            self.logger.debug("Converting constant values to sparse matrix.")
+            var_value = csr_matrix(var_value)
 
         result = self.create_cvxpy_variable(
             var_type=variable.type,
@@ -456,10 +478,6 @@ class Problem:
 
         if variable_type is None:
             variable_type = variable.type
-
-        self.logger.debug(
-            f"Generating dataframe for {variable_type} variable '{variable_name}' "
-            "(cvxpy object, filter dictionary, sub problem key).")
 
         headers = {
             'cvxpy': Constants.Labels.CVXPY_VAR,
@@ -653,6 +671,7 @@ class Problem:
             self.symbolic_problem = DotDict(data)
 
         elif util.find_dict_depth(data) == 2:
+            self.symbolic_problem = {}
             for key, problem in data.items():
                 self.symbolic_problem[key] = DotDict(problem)
 
@@ -981,7 +1000,7 @@ class Problem:
                 self.logger.info("Numerical problem overwritten.")
         else:
             self.logger.debug(
-                "Defining numerical problems based on symbolic problems.")
+                "Defining cvxpy numerical problems based on symbolic problems.")
 
         if util.find_dict_depth(self.symbolic_problem) == 1:
             self.numerical_problems = self.generate_problem_dataframe(
@@ -1050,8 +1069,10 @@ class Problem:
 
         for scenario in problems_df.index:
 
-            scenario_coords = problems_df.loc[scenario,
-                                              scenarios_coords_header]
+            scenario_coords = problems_df.loc[
+                scenario,
+                scenarios_coords_header,
+            ]
 
             if problem_key is not None:
                 msg = f"Defining sub-problem '{problem_key}'"
@@ -1356,6 +1377,7 @@ class Problem:
 
         for expression in symbolic_expressions:
 
+            self.logger.debug(f"Processing literal expression: '{expression}'")
             cvxpy_expression = None
 
             vars_symbols_list = self.parse_allowed_symbolic_vars(expression)

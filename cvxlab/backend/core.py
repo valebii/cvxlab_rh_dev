@@ -4,10 +4,10 @@ core.py
 @author: Matteo V. Rocco
 @institution: Politecnico di Milano
 
-This module embeds the generation of main classes of the package, allowing to 
-operate across them. 
-It facilitates interactions among data tables, databases, problems, and 
-logging mechanisms, enabling comprehensive management and operations within 
+This module embeds the generation of main classes of the package, allowing to
+operate across them.
+It facilitates interactions among data tables, databases, problems, and
+logging mechanisms, enabling comprehensive management and operations within
 the modeling environment.
 """
 
@@ -19,23 +19,23 @@ import numpy as np
 import pandas as pd
 import cvxpy as cp
 
-from esm.backend.data_table import DataTable
-from esm.backend.database import Database
-from esm.backend.index import Index, Variable
-from esm.backend.problem import Problem
-from esm.log_exc import exceptions as exc
-from esm.log_exc.logger import Logger
-from esm.constants import Constants
-from esm.support import util
-from esm.support.file_manager import FileManager
-from esm.support.sql_manager import SQLManager, db_handler
+from cvxlab.backend.data_table import DataTable
+from cvxlab.backend.database import Database
+from cvxlab.backend.index import Index, Variable
+from cvxlab.backend.problem import Problem
+from cvxlab.log_exc import exceptions as exc
+from cvxlab.log_exc.logger import Logger
+from cvxlab.constants import Constants
+from cvxlab.support import util
+from cvxlab.support.file_manager import FileManager
+from cvxlab.support.sql_manager import SQLManager, db_handler
 
 
 class Core:
     """
-    Core class defines the interactions among various components of the package, 
-    such as data tables, databases, and problem-solving mechanisms. It serves 
-    as the central management point for initializing, processing, and 
+    Core class defines the interactions among various components of the package,
+    such as data tables, databases, and problem-solving mechanisms. It serves
+    as the central management point for initializing, processing, and
     executing model operations.
 
     Attributes:
@@ -64,26 +64,26 @@ class Core:
     ) -> None:
         """
         Initializes the Core class with the necessary components and settings.
-        This class serves as the main orchestrator for the application, managing 
+        This class serves as the main orchestrator for the application, managing
         the interactions between the various components.
 
         Args:
-            logger (Logger): An instance of Logger for logging information and 
+            logger (Logger): An instance of Logger for logging information and
                 error messages.
-            files (FileManager): An instance of FileManager for managing 
+            files (FileManager): An instance of FileManager for managing
                 file-related operations.
-            settings (Dict[str, str]): A dictionary containing configuration 
+            settings (Dict[str, str]): A dictionary containing configuration
                 settings for the application.
-            paths (Dict[str, Path]): A dictionary containing paths used throughout 
+            paths (Dict[str, Path]): A dictionary containing paths used throughout
                 operations, such as for files and directories.
 
         Returns:
             None
 
         Notes:
-            The logger is initialized with a child logger using the name of the 
+            The logger is initialized with a child logger using the name of the
                 current module.
-            The SQLManager, Index, Database, and Problem instances are initialized 
+            The SQLManager, Index, Database, and Problem instances are initialized
                 with the provided logger, files, paths, and settings.
         """
         self.logger = logger.get_child(__name__)
@@ -129,29 +129,29 @@ class Core:
     def initialize_problems_variables(self) -> None:
         """
         Initializes and generates data structures for handling problem variables.
-        This method iterates over each data table and variable in the index. 
-        For each endogenous data table or data table with a dictionary type, 
-        it generates a coordinates DataFrame and a cvxpy variable. For each 
-        constant variable, it generates the variable's data directly. For each 
-        exogenous or endogenous variable, it generates a DataFrame and stores it 
-        in the variable's data attribute. For each variable with a dictionary 
-        type, it generates a DataFrame for each problem and stores them in the 
+        This method iterates over each data table and variable in the index.
+        For each endogenous data table or data table with a dictionary type,
+        it generates a coordinates DataFrame and a cvxpy variable. For each
+        constant variable, it generates the variable's data directly. For each
+        exogenous or endogenous variable, it generates a DataFrame and stores it
+        in the variable's data attribute. For each variable with a dictionary
+        type, it generates a DataFrame for each problem and stores them in the
         variable's data attribute as a dictionary.
 
         Returns:
             None
 
         Raises:
-            SettingsError: If a variable's type is not 'constant', 'exogenous', 
+            SettingsError: If a variable's type is not 'constant', 'exogenous',
                 'endogenous', or a dictionary.
 
         Notes:
             The method logs information about the generation process.
-            The cvxpy variables for endogenous data tables are created using the 
+            The cvxpy variables for endogenous data tables are created using the
                 'create_cvxpy_variable' method of the Problem instance.
-            The data for constant variables is generated using the 
+            The data for constant variables is generated using the
                 'generate_constant_data' method of the Problem instance.
-            The DataFrames for exogenous and endogenous variables are generated 
+            The DataFrames for exogenous and endogenous variables are generated
                 using the 'generate_vars_dataframe' method of the Problem instance.
         """
         self.logger.debug(
@@ -167,8 +167,8 @@ class Core:
                     isinstance(data_table.type, dict):
 
                 self.logger.debug(
-                    "Generating variable dataframe and cvxpy variable "
-                    f"for endogenous data table '{data_table_key}'.")
+                    f"Data table '{data_table_key}' | type: {data_table.type} | "
+                    "Generating dataframe and cvxpy variable.")
 
                 data_table.generate_coordinates_dataframes(
                     sets_split_problems=self.index.sets_split_problem_dict
@@ -184,7 +184,9 @@ class Core:
                     )
 
                 # in case of problem with sets split, multiple endogenous variables
-                # are created and stored in a dictionary
+                # are created and stored in a dictionary.
+                # Notice that all endogenous variables are defined for all scenarios
+                # defined by sets_split_problems
                 elif isinstance(data_table.coordinates_dataframe, dict):
 
                     cvxpy_var = {}
@@ -210,6 +212,11 @@ class Core:
 
             # for constants, values are directly generated (no dataframes needed)
             if variable.type == 'constant':
+
+                self.logger.debug(
+                    f"Variable '{var_key}' | type: {variable.type} | Constant "
+                    f"value '{variable.value}'.")
+
                 variable.data = self.problem.generate_constant_data(
                     variable_name=var_key,
                     variable=variable
@@ -218,6 +225,11 @@ class Core:
             # for variables whose type is univocally defined, only one data structure
             # is generated and stored in variable.data
             elif variable.type in ['exogenous', 'endogenous']:
+
+                self.logger.debug(
+                    f"Variable '{var_key}' | type: {variable.type} | Generating "
+                    "data structure.")
+
                 variable.data = self.problem.generate_vars_dataframe(
                     variable_name=var_key,
                     variable=variable
@@ -228,6 +240,10 @@ class Core:
             # variable.data defined as a dictionary
             elif isinstance(variable.type, dict):
                 variable.data = {}
+
+                self.logger.debug(
+                    f"Variable '{var_key}' | type: {variable.type} | Generating "
+                    "data structure.")
 
                 for problem_key, problem_var_type in variable.type.items():
                     variable.data[problem_key] = self.problem.generate_vars_dataframe(
@@ -246,17 +262,18 @@ class Core:
             self,
             scenarios_idx: Optional[List[int] | int] = None,
             allow_none_values: bool = True,
+            var_list_to_update: List[str] = [],
     ) -> None:
         """
-        Fetches data from the SQLite database and assigns it to cvxpy exogenous 
+        Fetches data from the SQLite database and assigns it to cvxpy exogenous
         variables.
-        This method iterates over each variable in the index. If the variable's 
-        type is not 'endogenous' or 'constant', the method fetches the variable's 
-        data from the SQLite database and assigns it to the cvxpy variable. 
+        This method iterates over each variable in the index. If the variable's
+        type is not 'endogenous' or 'constant', the method fetches the variable's
+        data from the SQLite database and assigns it to the cvxpy variable.
         The method handles variables whose type is defined by the problem separately.
 
         Args:
-            allow_none_values (bool, optional): If True, allows None values in 
+            allow_none_values (bool, optional): If True, allows None values in
                 the data for the variable. Defaults to True.
 
         Returns:
@@ -264,15 +281,15 @@ class Core:
 
         Raises:
             TypeError: If a passed item is not an instance of the 'Variable' class.
-            MissingDataError: If no data or related table is defined for a variable, 
+            MissingDataError: If no data or related table is defined for a variable,
                 or if the data for a variable contains non-allowed values types.
 
         Notes:
             The method logs information about the data fetching process.
             The method uses a context manager to handle the database connection.
-            The data is fetched using the 'filtered_table_to_dataframe' method 
+            The data is fetched using the 'filtered_table_to_dataframe' method
                 of the SQLTools instance.
-            The data is assigned to the cvxpy variable using the 'data_to_cvxpy_variable' 
+            The data is assigned to the cvxpy variable using the 'data_to_cvxpy_variable'
                 method of the Problem instance.
         """
         self.logger.debug(
@@ -285,20 +302,33 @@ class Core:
         id_header = Constants.Labels.ID_FIELD['id'][0]
         allowed_values_types = Constants.NumericalSettings.ALLOWED_VALUES_TYPES
 
+        if not isinstance(var_list_to_update, list):
+            msg = "Passed item is not a list."
+            self.logger.error(msg)
+            raise TypeError(msg)
+
+        if not var_list_to_update == [] and \
+                not util.items_in_list(var_list_to_update, self.index.variables.keys()):
+            msg = "One or more passed items are not in the index variables."
+            self.logger.error(msg)
+            raise exc.SettingsError(msg)
+
+        if var_list_to_update == []:
+            var_list_to_update = self.index.list_variables
+
         with db_handler(self.sqltools):
             for var_key, variable in self.index.variables.items():
+                variable: Variable
 
-                if not isinstance(variable, Variable):
-                    msg = "Passed item is not a 'Variable' class instance."
-                    self.logger.error(msg)
-                    raise TypeError(msg)
+                if var_key not in var_list_to_update:
+                    continue
 
                 if variable.type in ['endogenous', 'constant']:
                     continue
 
                 self.logger.debug(
-                    f"Fetching data from table '{var_key}' "
-                    "to cvxpy exogenous variable.")
+                    f"Data table '{var_key}' | Fetching data to cvxpy "
+                    "exogenous variable.")
 
                 err_msg = []
 
@@ -330,24 +360,51 @@ class Core:
                     else:
                         variable_data = variable.data
 
-                    # determine the scenarios for which the variable is defined.
-                    # handle the case when a variable is the same for all scenarios.
-                    # in this case, parse all variable data independently by scenarios.
-                    if not variable.coordinates['inter']:
-                        scenarios_list = list(variable_data.index)
-                    else:
-                        if scenarios_idx is None:
-                            scenarios_list = list(
-                                self.index.scenarios_info.index)
-                        else:
-                            if isinstance(scenarios_idx, int):
-                                scenarios_list = [scenarios_idx]
+                    # case when all values of variables need to be fetched
+                    if scenarios_idx is None:
+                        sets_parsing_hierarchy_idx = list(variable_data.index)
 
-                    for scenario in scenarios_list:
+                    # case when values of variables need to be fetched for a
+                    # sub-set of inter-problem sets defined by scenarios_idx
+                    # (typically when solving integrated problems)
+                    else:
+                        if isinstance(scenarios_idx, int):
+                            scenarios_idx = [scenarios_idx]
+
+                        # case of variable not defined for any inter-problem sets
+                        if not variable.coordinates['inter']:
+                            sets_parsing_hierarchy_idx = \
+                                list(variable_data.index)
+
+                        # case of variable defined for one or more inter-problem sets
+                        # find the index of variable_data that matches the combination
+                        # of inter-problem-sets defined by scenarios_idx
+                        else:
+                            info_label = Constants.Labels.SCENARIO_COORDINATES
+                            scenarios_to_fetch = \
+                                self.index.scenarios_info.loc[scenarios_idx].drop(
+                                    columns=[info_label]
+                                )
+
+                            var_inter_set_headers = list(
+                                variable.coordinates_info['inter'].values())
+
+                            variable_data = variable_data.reset_index()
+
+                            variable_data_filtered = variable_data.merge(
+                                right=scenarios_to_fetch,
+                                on=var_inter_set_headers,
+                                how='inner'
+                            ).set_index('index')
+
+                            sets_parsing_hierarchy_idx = \
+                                list(variable_data_filtered.index)
+
+                    for combination in sets_parsing_hierarchy_idx:
                         # get raw data from database
                         raw_data = self.database.sqltools.table_to_dataframe(
                             table_name=variable.related_table,
-                            filters_dict=variable_data[filter_header][scenario]
+                            filters_dict=variable_data[filter_header][combination]
                         )
 
                         # check if variable data are int or float
@@ -370,11 +427,11 @@ class Core:
                         # pivoting and reshaping data to fit variables
                         pivoted_data = variable.reshaping_sqlite_table_data(
                             data=raw_data,
-                            nan_to_zero=allow_none_values,
                         )
 
                         self.problem.data_to_cvxpy_variable(
-                            cvxpy_var=variable_data[cvxpy_var_header][scenario],
+                            var_key=var_key,
+                            cvxpy_var=variable_data[cvxpy_var_header][combination],
                             data=pivoted_data
                         )
 
@@ -761,12 +818,14 @@ class Core:
                 Constants.NumericalSettings.TOLERANCE_MODEL_COUPLING_CONVERGENCE
 
         sqlite_db_file_name = Constants.ConfigFiles.SQLITE_DATABASE_FILE
+        sqlite_db_file_name_bkp = Constants.ConfigFiles.SQLITE_DATABASE_FILE_BKP
         scenarios_header = Constants.Labels.SCENARIO_COORDINATES
         problem_status_header = Constants.Labels.PROBLEM_STATUS
 
         sqlite_db_path = self.paths['model_dir']
         base_name, extension = os.path.splitext(sqlite_db_file_name)
-        sqlite_db_file_name_previous = f"{base_name}_previous_iter{extension}"
+        sqlite_db_file_name_previous = f"{base_name}_previous{extension}"
+
         tables_to_check = self.problem.endogenous_tables
         sub_problems_keys = list(self.problem.numerical_problems.keys())
         scenarios_df = self.index.scenarios_info
@@ -776,116 +835,149 @@ class Core:
             columns=sub_problems_keys,
         )
 
-        for scenario_idx in scenarios_df.index:
+        # create a backup copy of the original database
+        self.files.copy_file_to_destination(
+            path_destination=sqlite_db_path,
+            path_source=sqlite_db_path,
+            file_name=sqlite_db_file_name,
+            file_new_name=sqlite_db_file_name_bkp,
+            force_overwrite=True,
+        )
 
-            scenario_coords = scenarios_df.loc[scenario_idx, scenarios_header]
+        try:
+            for scenario_idx in scenarios_df.index:
 
-            self.logger.info("=================================")
-            self.logger.info(
-                f"Solving integrated problems for scenario {scenario_coords}")
+                scenario_coords = scenarios_df.loc[scenario_idx,
+                                                   scenarios_header]
 
-            iter_count = 0
-
-            while True:
-                try:
-                    iter_count += 1
-                    if iter_count > maximum_iterations:
-                        self.logger.warning(
-                            "Maximum number of iterations hit before reaching "
-                            f"convergence (tolerance: {numerical_tolerance*100}%).")
-                        break
-
-                    # make a method in log class to log such table
-                    # if iterations_log and iter_count == 1:
-                    #     print('\n')
-                    #     print('iter # \t|error \t|other \t')
-                    # if iterations_log:
-                    #     print(f'{iter_count}\tcc \t dd')
-
-                    if iter_count > 1:
-                        self.data_to_cvxpy_exogenous_vars(
-                            scenarios_idx=scenario_idx)
-
-                    self.files.copy_file_to_destination(
-                        path_destination=sqlite_db_path,
-                        path_source=sqlite_db_path,
-                        file_name=sqlite_db_file_name,
-                        file_new_name=sqlite_db_file_name_previous,
-                        force_overwrite=True,
+                self.logger.info("=================================")
+                if scenario_coords:
+                    self.logger.info(
+                        f"Solving integrated problems for scenario {scenario_coords}"
                     )
+                else:
+                    self.logger.info("Solving integrated problems")
 
-                    for sub_problem, problem_df in self.problem.numerical_problems.items():
-                        self.problem.solve_problem_dataframe(
-                            problem_name=sub_problem,
-                            problem_dataframe=problem_df,
-                            scenarios_idx=scenario_idx,
-                            solver=solver,
-                            solver_verbose=solver_verbose,
-                            **kwargs
+                iter_count = 0
+
+                while True:
+                    try:
+                        iter_count += 1
+                        if iter_count > maximum_iterations:
+                            self.logger.warning(
+                                "Maximum number of iterations hit before reaching "
+                                f"convergence (tolerance: {numerical_tolerance*100}%).")
+                            break
+
+                        # make a method in log class to log such table
+                        # if iterations_log and iter_count == 1:
+                        #     print('\n')
+                        #     print('iter # \t|error \t|other \t')
+                        # if iterations_log:
+                        #     print(f'{iter_count}\tcc \t dd')
+
+                        if iter_count > 1:
+                            self.data_to_cvxpy_exogenous_vars(
+                                scenarios_idx=scenario_idx)
+
+                        self.files.copy_file_to_destination(
+                            path_destination=sqlite_db_path,
+                            path_source=sqlite_db_path,
+                            file_name=sqlite_db_file_name,
+                            file_new_name=sqlite_db_file_name_previous,
+                            force_overwrite=True,
                         )
 
-                        status = problem_df.loc[
-                            scenario_idx,
-                            problem_status_header
-                        ]
-
-                        problems_status.at[scenario_idx, sub_problem] = \
-                            status
-
-                    if not all(
-                        problems_status.loc[scenario_idx] == 'optimal'
-                    ):
-                        self.logger.warning(
-                            "One or more sub-problems infeasible for scenario "
-                            f"{scenario_coords}."
-                        )
-                        break
-
-                    self.cvxpy_endogenous_data_to_database(
-                        scenarios_idx=scenario_idx,
-                        force_overwrite=True,
-                        suppress_warnings=True,
-                    )
-
-                    if iter_count == 1:
-                        continue
-
-                    # relative error must be computed for scenarios_idx only
-                    # funziona lo stesso, perchè se il problema è infeasible i
-                    # risultati non vengono esportati (break qui sopra) e il
-                    # database rimane sempre uguale
-                    with db_handler(self.sqltools):
-                        relative_difference = \
-                            self.sqltools.get_tables_values_relative_difference(
-                                other_db_dir_path=sqlite_db_path,
-                                other_db_name=sqlite_db_file_name_previous,
-                                tables_names=tables_to_check,
+                        for sub_problem, problem_df \
+                                in self.problem.numerical_problems.items():
+                            self.problem.solve_problem_dataframe(
+                                problem_name=sub_problem,
+                                problem_dataframe=problem_df,
+                                scenarios_idx=scenario_idx,
+                                solver=solver,
+                                solver_verbose=solver_verbose,
+                                **kwargs
                             )
 
-                    relative_difference_above = {
-                        table: value
-                        for table, value in relative_difference.items()
-                        if value > numerical_tolerance
-                    }
+                            status = problem_df.loc[
+                                scenario_idx,
+                                problem_status_header
+                            ]
 
-                    if relative_difference_above:
-                        self.logger.info(
-                            "Data tables with highest relative difference above "
-                            f"treshold ({numerical_tolerance}):"
+                            problems_status.at[scenario_idx, sub_problem] = \
+                                status
+
+                        if not all(
+                            problems_status.loc[scenario_idx] == 'optimal'
+                        ):
+                            self.logger.warning(
+                                "One or more sub-problems infeasible for scenario "
+                                f"{scenario_coords}."
+                            )
+                            break
+
+                        self.cvxpy_endogenous_data_to_database(
+                            scenarios_idx=scenario_idx,
+                            force_overwrite=True,
+                            suppress_warnings=True,
                         )
-                        for table, value in relative_difference_above.items():
-                            self.logger.info(
-                                f"Data table '{table}': {round(value, 5)}")
-                    else:
-                        self.logger.info(
-                            "Numerical convergence reached - Scenario "
-                            f"{scenario_coords}.")
-                        break
 
-                finally:
-                    self.files.erase_file(
-                        dir_path=sqlite_db_path,
-                        file_name=sqlite_db_file_name_previous,
-                        force_erase=True,
-                        confirm=False,
-                    )
+                        if iter_count == 1:
+                            continue
+
+                        # relative error must be computed for scenarios_idx only
+                        # funziona lo stesso, perchè se il problema è infeasible i
+                        # risultati non vengono esportati (break qui sopra) e il
+                        # database rimane sempre uguale
+                        with db_handler(self.sqltools):
+                            relative_difference = \
+                                self.sqltools.get_tables_values_relative_difference(
+                                    other_db_dir_path=sqlite_db_path,
+                                    other_db_name=sqlite_db_file_name_previous,
+                                    tables_names=tables_to_check,
+                                )
+
+                        relative_difference_above = {
+                            table: value
+                            for table, value in relative_difference.items()
+                            if value > numerical_tolerance
+                        }
+
+                        if relative_difference_above:
+                            self.logger.info(
+                                "Data tables with highest relative difference above "
+                                f"treshold ({numerical_tolerance}):"
+                            )
+                            for table, value in relative_difference_above.items():
+                                self.logger.info(
+                                    f"Data table '{table}': {round(value, 5)}")
+                        else:
+                            self.logger.info(
+                                "Numerical convergence reached - Scenario "
+                                f"{scenario_coords}.")
+                            break
+
+                    finally:
+                        self.files.erase_file(
+                            dir_path=sqlite_db_path,
+                            file_name=sqlite_db_file_name_previous,
+                            force_erase=True,
+                            confirm=False,
+                        )
+
+        finally:
+            # after iterations are concluded for all scenarios
+            # erase the database modified during the iterations
+            # and restore original database from backup
+            self.files.erase_file(
+                dir_path=sqlite_db_path,
+                file_name=sqlite_db_file_name,
+                force_erase=True,
+                confirm=False,
+            )
+
+            self.files.rename_file(
+                dir_path=sqlite_db_path,
+                name_old=sqlite_db_file_name_bkp,
+                name_new=sqlite_db_file_name,
+            )

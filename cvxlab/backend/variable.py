@@ -20,10 +20,10 @@ import cvxpy as cp
 import numpy as np
 import pandas as pd
 
-from esm.constants import Constants
-from esm.log_exc import exceptions as exc
-from esm.log_exc.logger import Logger
-from esm.support import util
+from cvxlab.constants import Constants
+from cvxlab.log_exc import exceptions as exc
+from cvxlab.log_exc.logger import Logger
+from cvxlab.support import util
 
 
 class Variable:
@@ -111,6 +111,7 @@ class Variable:
         self.rows: Dict[str, Any] = {}
         self.cols: Dict[str, Any] = {}
         self.value: Optional[str] = None
+        self.blank_fill: Optional[float] = None
         self.related_table: Optional[str] = None
         self.related_dims_map: Optional[pd.DataFrame] = None
         self.var_info: Optional[Dict[str, Any]] = None
@@ -148,13 +149,21 @@ class Variable:
         to the corresponding attributes of the Variable class. This method is
         called upon initialization of the Variable class.
         """
+        value_key = Constants.Labels.VALUE_KEY
+        blank_fill_key = Constants.Labels.BLANK_FILL_KEY
+        allowed_constants = Constants.SymbolicDefinitions.ALLOWED_CONSTANTS
+
         if self.var_info is None:
             return
 
-        constant_value = self.var_info.get('value', None)
-        if constant_value and constant_value \
-                in Constants.SymbolicDefinitions.ALLOWED_CONSTANTS:
+        constant_value = self.var_info.get(value_key, None)
+        if constant_value and constant_value in allowed_constants:
             self.value = constant_value
+
+        blank_fill_value = self.var_info.get(blank_fill_key, None)
+        if blank_fill_value is not None and \
+                isinstance(blank_fill_value, (int, float)):
+            self.blank_fill = blank_fill_value
 
         for dimension in ['rows', 'cols']:
             shape_set = util.fetch_dict_primary_key(
@@ -393,6 +402,40 @@ class Variable:
             all_coordinates.update(coordinates)
         return all_coordinates
 
+    @property
+    def all_coordinates_w_headers(self) -> Dict[str, List[str] | None]:
+
+        if not self.coordinates_info:
+            self.logger.warning(
+                f"Coordinates not defined for variable '{self.symbol}'.")
+            return []
+
+        if not self.coordinates:
+            self.logger.warning(
+                f"Coordinates not defined for variable '{self.symbol}'.")
+            return []
+
+        all_coords_w_headers = {}
+        for category in Constants.SymbolicDefinitions.ALLOWED_DIMENSIONS:
+            coords_info = self.coordinates_info.get(category, {})
+            coords = self.coordinates.get(category, {})
+
+            for key, table_header in coords_info.items():
+                table_values = coords.get(key, [])
+
+                if table_header in all_coords_w_headers:
+                    all_coords_w_headers[table_header].extend(table_values)
+                else:
+                    all_coords_w_headers[table_header] = table_values
+
+        # remove duplicates
+        for key in all_coords_w_headers:
+            all_coords_w_headers[key] = list(
+                dict.fromkeys(all_coords_w_headers[key])
+            )
+
+        return all_coords_w_headers
+
     def none_data_coordinates(self, row: int) -> Dict[str, Any] | None:
         """
         Checks if there are any None data values in the CVXPY variables and 
@@ -476,10 +519,12 @@ class Variable:
             aggfunc='first'
         )
 
-        pivoted_data = pivoted_data.reindex(
-            index=self.dims_items[0],
-            columns=self.dims_items[1]
-        )
+        # l'ho tolto perchè dava problemi, generava NaNs quando non c'è indice
+        # di riga/colonna (vettore senza label).
+        # pivoted_data = pivoted_data.reindex(
+        #     index=self.dims_items[0],
+        #     columns=self.dims_items[1]
+        # )
 
         if nan_to_zero:
             pivoted_data.fillna(0, inplace=True)
@@ -540,7 +585,7 @@ class Variable:
 
         elif value_type == 'set_length':
             if self.is_vector:
-                result = factory_function(self.dims_items[0], **args)
+                result = factory_function(self.shape_size, **args)
                 result_array = np.array(result)
                 if result_array.ndim == 0:
                     result_array = result_array.reshape(-1, 1)

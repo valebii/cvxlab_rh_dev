@@ -10,18 +10,33 @@ The module also collects allowed operators and constants labels necessary for
 defining symbolic problem.
 To avoid direct access and eventual unexpected modification of protected items 
 may occur in other modules, constants are defined as class variables of the 
-Constants class, accessible through the 'get' getter method.
+Constants class, accessible through the '__getattr__' getter method.
+
+Classes:
+    Constants: Centralized repository of constants grouped into meaningful
+        categories for clarity and ease of access. Supports direct attribute
+        access of constants using '__getattr__' method.
 """
 import cvxpy as cp
 import numpy as np
-from esm.support import util_functions
+
+from cvxlab.support import util_constants, util_operators
 
 
 class Constants:
     """
     Centralized repository of constants grouped into meaningful categories for 
     clarity and ease of access. Supports direct attribute access of constants 
-    using '__getattr__' method.
+    using the '__getattr__' method.
+
+    Subgroups:
+        ConfigFiles: Constants related to configuration and file management.
+        Labels: Standard headers and field names.
+        DefaultStructures: Default structures for data validation.
+        SymbolicDefinitions: Allowed constants and operators for symbolic 
+            problem definitions.
+        NumericalSettings: Settings for numerical solvers and tolerances.
+        TextNotes: Text notes and messages for user.
 
     Usage:
         Direct access:
@@ -44,9 +59,11 @@ class Constants:
         INPUT_DATA_FILE = 'input_data.xlsx'
         DATA_FILES_EXTENSION = '.xlsx'
         SQLITE_DATABASE_FILE = 'database.db'
+        SQLITE_DATABASE_FILE_BKP = 'database_bkp.db'
         SQLITE_DATABASE_FILE_TEST = 'database_expected.db'
         TUTORIAL_FILE_NAME = 'API_usage_guide.ipynb'
         TEMPLATES_DIR = 'default'
+        INSTANCES_DIR = 'instances'
 
     class Labels:
         """Standard headers and field names."""
@@ -65,6 +82,7 @@ class Constants:
         COORDINATES_KEY = 'coordinates'
         VARIABLES_INFO_KEY = 'variables_info'
         VALUE_KEY = 'value'
+        BLANK_FILL_KEY = 'blank_fill'
 
         GENERIC_FIELD_TYPE = 'TEXT'
         VALUES_FIELD = {'values': ['values', 'REAL']}
@@ -75,7 +93,7 @@ class Constants:
         COLUMN_AGGREGATION_SUFFIX = '_Aggregation'
 
     class DefaultStructures:
-        """Default structures for data validation."""
+        """Default structures for data validation and for generating templates."""
         OPTIONAL = object()
         ANY = object()
 
@@ -115,6 +133,9 @@ class Constants:
                     ANY: {
                         # ALLOWED_CONSTANTS (only for constants!)
                         'value': (OPTIONAL, str),
+                        # numerical value that will be used to fill variables in
+                        # case of blank or nan values
+                        'blank_fill': (OPTIONAL, float),
                         # dictionary with keys as set_key symbols and values
                         # defining the dimension and filters for the set
                         ANY: (OPTIONAL, {
@@ -149,9 +170,21 @@ class Constants:
         }
 
         XLSX_TEMPLATE_COLUMNS = {
-            'structure_sets': ['set_key', *SET_STRUCTURE[1].keys()],
-            'structure_variables': ['table_key', *DATA_TABLE_STRUCTURE[1].keys(), 'set_keys ...'],
-            'problem': ['problem_key', *PROBLEM_STRUCTURE[1].keys()],
+            'structure_sets': [
+                'set_key',
+                *SET_STRUCTURE[1].keys()
+            ],
+            'structure_variables': [
+                'table_key',
+                *DATA_TABLE_STRUCTURE[1].keys(),
+                'value',
+                'blank_fill',
+                'set_keys ...'
+            ],
+            'problem': [
+                'problem_key',
+                *PROBLEM_STRUCTURE[1].keys()
+            ],
         }
 
     class SymbolicDefinitions:
@@ -164,11 +197,11 @@ class Constants:
         ALLOWED_CONSTANTS = {
             'sum_vector': (np.ones, {}),
             'identity': (np.eye, {}),
-            'set_length': (np.size, {}),
-            'arange_1': (util_functions.arange, {}),
-            'arange_0': (util_functions.arange, {'start_from': 0}),
-            'lower_triangular': (util_functions.tril, {}),
-            'identity_rcot': (util_functions.identity_rcot, {}),
+            'set_length': (np.max, {}),
+            'arange_1': (util_constants.arange, {}),
+            'arange_0': (util_constants.arange, {'start_from': 0}),
+            'lower_triangular': (util_constants.tril, {}),
+            'identity_rcot': (util_constants.identity_rcot, {}),
         }
         ALLOWED_OPERATORS = {
             '+': '+',
@@ -185,25 +218,30 @@ class Constants:
             'diag': cp.diag,
             'sum': cp.sum,
             'mult': cp.multiply,
-            'shift': util_functions.shift,
-            'pow': util_functions.power,
-            'minv': util_functions.matrix_inverse,
-            'weib': util_functions.weibull_distribution,
+            'shift': util_operators.shift,
+            'pow': util_operators.power,
+            'minv': util_operators.matrix_inverse,
+            'weib': util_operators.weibull_distribution,
+            'annuity': util_operators.annuity,
             'Minimize': cp.Minimize,
             'Maximize': cp.Maximize,
         }
 
     class NumericalSettings:
         """Settings for numerical solvers and tolerances."""
-        ALLOWED_VALUES_TYPES = (int, float)
+        # ALLOWED_VALUES_TYPES = (int, float)
         STD_VALUES_TYPE = float
-        DB_EMPTY_DATA_FILL = 0
+        ALLOWED_VALUES_TYPES = (
+            int, float, np.dtype('float64'), np.dtype('int64'))
+        ALLOWED_TEXT_TYPE = str
         ALLOWED_SOLVERS = cp.installed_solvers()
         DEFAULT_SOLVER = 'GUROBI'
         TOLERANCE_TESTS_RESULTS_CHECK = 0.02
         TOLERANCE_MODEL_COUPLING_CONVERGENCE = 0.01
         MAXIMUM_ITERATIONS_MODEL_COUPLING = 20
         ROUNDING_DIGITS_RELATIVE_DIFFERENCE_DB = 5
+        SPARSE_MATRIX_ZEROS_THRESHOLD = 0.3
+        SQL_BATCH_SIZE = 1000
 
     class TextNotes:
         """Text notes and messages for user."""

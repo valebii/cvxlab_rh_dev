@@ -4,37 +4,39 @@ model.py
 @author: Matteo V. Rocco
 @institution: Politecnico di Milano
 
-This module defines the Model class, a comprehensive framework designed to 
-facilitate the management of complex data processing and optimization tasks 
-within a modeling environment.
+This module defines the Model class, the main object of the CVXLab package.
 
-The Model class provides functionalities for SQLite database management, 
-numerical optimization using CVXPY. 
+The Model class gets the main user settings and data model path, and it provides
+all the methods useful for the user to handle the model and its main 
+functionalities.
+The Model class integrates various components such as logging, file management,
+and core functionalities, ensuring a cohesive workflow from numerical problem
+conceptualization, database generation and data input, numerical problem generation
+and solution, results export to database.
+The Model class embeds the generation of the Core class, which provides 
+functionalities for SQLite database management, problem formulation and solution
+through CVXPY. 
 
 The primary focus of this module is to streamline operations across database 
-interactions, data file management, numerical problem formulation, and result 
-visualization, making it suitable for applications in scientific computing, 
-economic modeling, or any domain requiring robust data analysis and visualization 
-capabilities.
+interactions, data file management, numerical problem formulation, making it 
+suitable for applications in scientific computing, economic modeling, or any 
+domain requiring robust data analysis and optimization capabilities.
 
-The Model class integrates various components such as logging, file management, 
-and core functionalities, ensuring a cohesive workflow from data input to 
-report generation. It supports both the creation of new data structures and the 
-utilization of existing datasets, allowing for flexible model configurations 
-based on user-defined settings.
 """
 
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 import pandas as pd
+import cvxpy as cp
 
-from esm.constants import Constants
-from esm.backend.core import Core
-from esm.log_exc import exceptions as exc
-from esm.log_exc.logger import Logger
-from esm.support.dotdict import DotDict
-from esm.support.file_manager import FileManager
+from cvxlab.constants import Constants
+from cvxlab.backend.core import Core
+from cvxlab.log_exc import exceptions as exc
+from cvxlab.log_exc.logger import Logger
+from cvxlab.support.dotdict import DotDict
+from cvxlab.support.file_manager import FileManager
+from cvxlab.support import util
 
 
 class Model:
@@ -62,27 +64,22 @@ class Model:
             the model itself).
         main_dir_path (str): Path to the main directory where the model 
             directory will be located.
+        model_settings_from (Literal['yml', 'xlsx']): Format of the model 
+            settings file.
         use_existing_data (bool, optional): Flag to indicate whether to use 
             existing data files and SQLite database. Defaults to False.
         multiple_input_files (bool, optional): Flag to indicate whether 
             multiple input files are expected. Defaults to False.
-        log_level (str, optional): Determines the logging level ('info' by 
-            default).
-        log_format (str, optional): Specifies the format of the logs 
-            ('minimal' by default).
-        sets_xlsx_file (str, optional): The Excel file name containing 
-            settings. Defaults to 'sets.xlsx'.
-        input_data_dir (str, optional): Sub-directory for input data. 
-            Defaults to 'input_data'.
-        input_data_file (str, optional): Name of the Excel file used for 
-            input data. Defaults to 'input_data.xlsx'.
-        sqlite_database_file (str, optional): Name of the SQLite database file. 
-            Defaults to 'database.db'.
-        sqlite_database_foreign_keys (bool, optional): Whether to enforce 
-            foreign key constraints in SQLite. Defaults to True.
+        log_level (Literal['info', 'debug', 'warning', 'error'], optional): 
+            Determines the logging level. Defaults to 'info'.
+        log_format (Literal['standard', 'minimal'], optional): Specifies the 
+            format of the logs. Defaults to 'minimal'.
+        detailed_validation (bool, optional): Flag to indicate whether to 
+            perform detailed validation logging at the end of the analysis of 
+            the model formulation. Defaults to False.
 
     Raises:
-        ValueError: If any critical configurations are invalid or not found.
+        SettingsError: If any critical configurations are invalid or not found.
         FileNotFoundError: If necessary files are not found in the specified paths.
     """
 
@@ -90,7 +87,7 @@ class Model:
             self,
             model_dir_name: str,
             main_dir_path: str,
-            model_settings_from: Literal['yml', 'xlsx'] = 'yml',
+            model_settings_from: Literal['yml', 'xlsx'] = 'xlsx',
             use_existing_data: bool = False,
             multiple_input_files: bool = False,
             log_level: Literal['info', 'debug', 'warning', 'error'] = 'info',
@@ -149,33 +146,60 @@ class Model:
 
     @property
     def sets(self) -> List[str]:
+        """
+        Returns a list of sets names available in the model, that can be 
+        interpreted as the 'coordinates' of the model.
+
+        Returns:
+            List[str]: A list of set names.
+        """
         return self.core.index.list_sets
 
     @property
     def data_tables(self) -> List[str]:
-        return {
-            table_key:
-                f"name: {table.name}, "
-                f"coordinates: {table.coordinates}, "
-                f"variables: {list(table.variables_info.keys())}"
-            for table_key, table in self.core.index.data.items()
-        }
+        """
+        Returns a list of data tables names available in the model, from where
+        all the problems variables are defined.
+
+        Returns:
+            List[str]: A list of data table names.
+        """
+        return self.core.index.list_data_tables
 
     @property
-    def variables(self) -> Dict[str, str]:
-        return {
-            var_key: f"shape: {variable.shape_sets}"
-            for var_key, variable in self.core.index.variables.items()
-        }
+    def variables(self) -> Dict[str, List[str]]:
+        """
+        Returns a dictionary of variables, where keys represent variable types 
+        (endogenous, exogenous, constants) and values are lists of related 
+        variables keys.
+
+        Returns:
+            Dict[str, List[str]]: A dictionary of variable types and related 
+            variables keys.
+        """
+        return self.core.index.dict_variables
 
     @property
     def is_problem_solved(self) -> bool:
+        """
+        Checks if the numerical problem has been solved (even if it has not 
+        found a numerical solution).
+
+        Returns:
+            bool: True if the problem has been solved, False otherwise.
+        """
         if self.core.problem.problem_status is None:
             return False
         else:
             return True
 
     def __repr__(self):
+        """
+        Returns a string representation of the Model instance.
+
+        Returns:
+            str: The class name of the Model instance.
+        """
         class_name = type(self).__name__
         return f'{class_name}'
 
@@ -280,8 +304,8 @@ class Model:
         sqlite_db_path = Path(self.paths['sqlite_database'])
         input_files_dir_path = Path(self.paths['input_data_dir'])
 
-        erased_db = True
-        erased_input_dir = True
+        erased_db = False
+        erased_input_dir = False
 
         if use_existing_data:
             self.logger.info(
@@ -300,7 +324,11 @@ class Model:
 
         if erased_db:
             self.logger.info(
-                f"SQLite database '{sqlite_db_name}' erased and generated.")
+                f"Existing SQLite database '{sqlite_db_name}' erased.")
+
+        if erased_db or not sqlite_db_path.exists():
+            self.logger.info(
+                f"Creating new blank SQLite database '{sqlite_db_name}'.")
             self.core.database.create_blank_sqlite_database()
             self.core.database.load_sets_to_sqlite_database()
             self.core.database.generate_blank_sqlite_data_tables()
@@ -317,16 +345,52 @@ class Model:
                 force_erase=False,
             )
 
-        if erased_input_dir:
+            if erased_input_dir:
+                self.logger.info("Existing input data directory erased.")
+
+        if erased_input_dir or not input_files_dir_path.exists():
             self.logger.info(
-                "Input data directory erased. Blank excel file/s regenerated.")
+                "Generating new blank input data directory and related file/s.")
             self.core.database.generate_blank_data_input_files()
         else:
             self.logger.info("Relying on existing input data directory.")
 
+    def generate_input_data_files(
+            self,
+            table_key_list: List[str] = [],
+    ) -> None:
+        """
+        Generates only one or more input data files for the model.
+        """
+        input_files_dir_path = Path(self.paths['input_data_dir'])
+
+        if not input_files_dir_path.exists():
+            msg = "Input data directory missing. Initialize blank data " \
+                "structure first."
+            self.logger.error(msg)
+            raise exc.SettingsError(msg)
+
+        if table_key_list != [] and not util.items_in_list(
+            table_key_list,
+            self.core.index.list_exogenous_data_tables
+        ):
+            msg = "Invalid table key/s provided. Only exogenous data tables " \
+                "can be exported to input data files."
+            self.logger.error(msg)
+            raise exc.SettingsError(msg)
+
+        if table_key_list != []:
+            self.logger.info(
+                f"Generating input data files for tables: '{table_key_list}'.")
+        else:
+            self.logger.info("Generating all input data files.")
+
+        self.core.database.generate_blank_data_input_files(table_key_list)
+
     def load_exogenous_data_to_sqlite_database(
             self,
             force_overwrite: bool = False,
+            table_key_list: list[str] = [],
     ) -> None:
         """
         Loads input (exogenous) data to the SQLite database. 
@@ -339,7 +403,12 @@ class Model:
 
         self.core.database.load_data_input_files_to_database(
             force_overwrite=force_overwrite,
-            empty_data_fill=Constants.NumericalSettings.DB_EMPTY_DATA_FILL,
+            table_key_list=table_key_list,
+        )
+
+        self.core.database.fill_nan_values_in_database(
+            force_overwrite=force_overwrite,
+            table_key_list=table_key_list,
         )
 
     def initialize_problems(
@@ -446,6 +515,10 @@ class Model:
             f"Solving '{problem_count}' {problem_type} numerical problem(s) "
             f"for '{problem_scenarios}' scenarios with '{solver}' solver.")
 
+        if verbose:
+            self.logger.info("="*30)
+            self.logger.info("cvxpy logs below.")
+
         self.core.solve_numerical_problems(
             solver=solver,
             solver_verbose=verbose,
@@ -454,16 +527,19 @@ class Model:
             integrated_problems=integrated_problems,
             numerical_tolerance=numerical_tolerance,
             maximum_iterations=maximum_iterations,
+            canon_backend=cp.SCIPY_CANON_BACKEND,
+            ignore_dpp=True,
             **kwargs,
         )
 
-        self.logger.info("=================================")
+        self.logger.info("="*30)
         self.logger.info("Numerical problems status report:")
         for info, status in self.core.problem.problem_status.items():
             self.logger.info(f"{info}: {status}")
 
     def load_results_to_database(
         self,
+        scenarios_idx: Optional[List[int] | int] = None,
         force_overwrite: bool = False,
         suppress_warnings: bool = False,
     ) -> None:
@@ -488,7 +564,10 @@ class Model:
             self.logger.warning(msg)
         else:
             self.core.cvxpy_endogenous_data_to_database(
-                force_overwrite, suppress_warnings)
+                scenarios_idx=scenarios_idx,
+                force_overwrite=force_overwrite,
+                suppress_warnings=suppress_warnings
+            )
 
     def update_database_and_problem(
             self,

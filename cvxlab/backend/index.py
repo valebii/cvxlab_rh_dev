@@ -18,15 +18,15 @@ from typing import Dict, List, Optional
 import pandas as pd
 import cvxpy as cp
 
-from esm.constants import Constants
-from esm.backend.data_table import DataTable
-from esm.backend.set_table import SetTable
-from esm.backend.variable import Variable
-from esm.log_exc import exceptions as exc
-from esm.log_exc.logger import Logger
-from esm.support import util
-from esm.support.file_manager import FileManager
-from esm.support.dotdict import DotDict
+from cvxlab.constants import Constants
+from cvxlab.backend.data_table import DataTable
+from cvxlab.backend.set_table import SetTable
+from cvxlab.backend.variable import Variable
+from cvxlab.log_exc import exceptions as exc
+from cvxlab.log_exc.logger import Logger
+from cvxlab.support import util
+from cvxlab.support.file_manager import FileManager
+from cvxlab.support.dotdict import DotDict
 
 
 class Index:
@@ -131,6 +131,35 @@ class Index:
         return list(self.data.keys()) if self.sets else []
 
     @property
+    def list_exogenous_data_tables(self) -> List[str]:
+        """
+        Returns a list of all data table identifiers currently loaded in the index
+        that are marked as not endogenous. Returns an empty list if no exogenous data
+        tables are loaded.
+
+        Returns:
+            List[str]: List of exogenous data table identifiers.
+        """
+        endogenous_type = Constants.SymbolicDefinitions.ALLOWED_VARIABLES_TYPES[2]
+        constant_type = Constants.SymbolicDefinitions.ALLOWED_VARIABLES_TYPES[0]
+
+        return [
+            key for key, data_table in self.data.items()
+            if data_table.type not in [endogenous_type, constant_type]
+        ]
+
+    @property
+    def list_all_tables(self) -> List[str]:
+        """
+        Returns a list of all table identifiers currently loaded in the index.
+        Returns an empty list if no tables are loaded.
+
+        Returns:
+            List[str]: List of table identifiers.
+        """
+        return [*self.list_sets, *self.list_data_tables]
+
+    @property
     def list_variables(self) -> List[str]:
         """
         Returns a list of all variable identifiers currently loaded in the index.
@@ -223,6 +252,7 @@ class Index:
         filters_key = Constants.Labels.FILTERS
         variables_info_key = Constants.Labels.VARIABLES_INFO_KEY
         value_key = Constants.Labels.VALUE_KEY
+        blank_fill_key = Constants.Labels.BLANK_FILL_KEY
 
         problems = {}
 
@@ -264,11 +294,23 @@ class Index:
                     if not property_value:
                         continue
 
-                    # value field must be allowed
+                    # value field must be assigned to constants only, and it
+                    # must be allowed
                     elif property_key == value_key:
+                        if data_table.type != 'constant':
+                            problems[f"{path}.{value_key}"] = \
+                                "'value' attribute can only be assigned to constants."
+
                         if property_value and property_value not in allowed_constants:
                             problems[f"{path}.{value_key}"] = \
-                                f"Constant type '{property_value}' not allowed."
+                                f"Constant value type '{property_value}' not allowed."
+
+                    # blank_fill field can only be assigned to exogenous variables
+                    elif property_key == blank_fill_key:
+                        if data_table.type == ('endogenous' or 'constant'):
+                            problems[f"{path}.{blank_fill_key}"] = \
+                                "'blank_fill' attribute cannot be assigned to " \
+                                "endogenous variables or constants."
 
                     # other properties must be allowed coordinates
                     elif property_key not in data_table.coordinates:

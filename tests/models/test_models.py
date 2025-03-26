@@ -26,7 +26,7 @@ from typing import Dict
 import pytest
 import yaml
 
-from esm import Model
+from cvxlab import Model
 
 
 def create_test_function(
