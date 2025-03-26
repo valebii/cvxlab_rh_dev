@@ -1,6 +1,6 @@
-# Contributing to CVXstudio
+# Contributing to CVXlab
 
-Thank you for considering contributing to CVXstudio! We welcome contributions from everyone. By participating in this project, you agree to abide by the [code of conduct](CODE_OF_CONDUCT.md).
+Thank you for considering contributing to CVXlab! We welcome contributions from everyone. By participating in this project, you agree to abide by the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## How to Contribute
 
@@ -34,4 +34,4 @@ Update the documentation to reflect your changes. This includes docstrings, READ
 Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
-By contributing to CVXstudio, you agree that your contributions will be licensed under the Apache License 2.0.
+By contributing to CVXlab, you agree that your contributions will be licensed under the Apache License 2.0.
