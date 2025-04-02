@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "pyesm"
+name = "cvxlab"
 version = "0.0.1"
 description = "A Python-embedded, open-source modeling framework able to generate and to solve convex numerical optimization problems."
 authors = ["Matteo V. Rocco <matteovincenzo.rocco@polimi.it>"]
