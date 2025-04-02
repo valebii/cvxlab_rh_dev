@@ -225,7 +225,7 @@ class Variable:
         return tuple(shape_size)
 
     @property
-    def dims_labels(self) -> List[str]:
+    def dims_labels(self) -> List[Optional[str]]:
         """
         Retrieves the labels for each dimension of the variable, typically used 
         for identifying matrix dimensions.
@@ -235,21 +235,15 @@ class Variable:
         """
         if not self.coordinates_info:
             return []
-
-        dim_labels = []
-
-        for dimension in ['rows', 'cols']:
-            if self.coordinates_info[dimension]:
-                self.coordinates_info: Dict[str, Dict]
-                dim_labels.append(
-                    list(self.coordinates_info[dimension].values())[0])
-            else:
-                dim_labels.append(None)
-
-        return dim_labels
+        
+        return [
+            next(iter(self.coordinates_info[dim].values()), None)
+            if self.coordinates_info[dim] else None
+            for dim in ['rows', 'cols']
+        ]
 
     @property
-    def dims_items(self) -> List[List[str]]:
+    def dims_items(self) -> List[Optional[List[str]]]:
         """
         Retrieves the items for each dimension of the variable, which are the 
         specific values that define the dimension.
@@ -259,18 +253,12 @@ class Variable:
         """
         if not self.coordinates:
             return []
-
-        dim_items = []
-
-        for dimension in ['rows', 'cols']:
-            if self.coordinates[dimension]:
-                self.coordinates: Dict[str, Dict]
-                dim_items.append(
-                    list(*self.coordinates[dimension].values()))
-            else:
-                dim_items.append(None)
-
-        return dim_items
+        
+        return [
+            list(*self.coordinates[dim].values())
+            if self.coordinates[dim] else None
+            for dim in ['rows', 'cols']
+        ]
 
     @property
     def dims_labels_items(self) -> Dict[str, List[str]]:
@@ -485,7 +473,6 @@ class Variable:
     def reshaping_sqlite_table_data(
             self,
             data: pd.DataFrame,
-            nan_to_zero: bool = False,
     ) -> pd.DataFrame:
         """
         It takes a dataframe with data fetched from SQLite database variable
@@ -495,39 +482,42 @@ class Variable:
         Args:
             data (pd.DataFrame): data filtered from the SQLite variable table,
             related to a unique cvxpy variable.
-            nan_to_zero (bool): if True, replaces NaN values with 0.
 
         Returns:
             pd.DataFrame: data reshaped and pivoted to be used as cvxpy values.
         """
         values_header = Constants.Labels.VALUES_FIELD['values'][0]
 
+        index_label, columns_label = self.dims_labels
+        index_items, columns_items = self.dims_items
+
         # case of a scalar with no rows/cols labels (scalars)
         if all(item is None for item in self.dims_labels):
-            index = ''
-            columns = None
-
-        # all other variables with rows/cols labels (scalars, vectors/matrices)
-        else:
-            index = self.dims_labels[0]
-            columns = self.dims_labels[1]
+            index_label = ''
 
         pivoted_data = data.pivot_table(
-            index=index,
-            columns=columns,
+            index=index_label,
+            columns=columns_label,
             values=values_header,
             aggfunc='first'
         )
 
-        # l'ho tolto perchè dava problemi, generava NaNs quando non c'è indice
-        # di riga/colonna (vettore senza label).
-        # pivoted_data = pivoted_data.reindex(
-        #     index=self.dims_items[0],
-        #     columns=self.dims_items[1]
-        # )
+        # ensure matching data types for reindexing
+        if columns_items is not None:
+            columns_items = [
+                type(pivoted_data.columns[0])(item) for item in columns_items
+            ]
+        
+        if index_items is not None:
+            index_items = [
+                type(pivoted_data.index[0])(item) for item in index_items
+            ]
 
-        if nan_to_zero:
-            pivoted_data.fillna(0, inplace=True)
+        # Reindex to ensure the correct order of the data
+        pivoted_data = pivoted_data.reindex(
+            index=index_items,
+            columns=columns_items,
+        )
 
         return pivoted_data
 
