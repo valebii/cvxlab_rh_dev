@@ -110,8 +110,8 @@ def evaluate_bool(value: Any) -> Any:
     and convert them to bool
     """
     bool_map = {
-        'True': True, 'TRUE': True,
-        'False': False, 'FALSE': False,
+        'true': True, 'True': True, 'TRUE': True,
+        'false': False, 'False': False, 'FALSE': False,
     }
 
     if isinstance(value, str):

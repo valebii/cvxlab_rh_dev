@@ -187,6 +187,11 @@ class Constants:
             ],
         }
 
+        ALLOWED_BOOL = {
+            'true': True, 'True': True, 'TRUE': True,
+            'false': False, 'False': False, 'FALSE': False,
+        }
+
     class SymbolicDefinitions:
         """Allowed constants and operators for symbolic problem definitions."""
         ALLOWED_DIMENSIONS = ['rows', 'cols', 'intra', 'inter']
@@ -229,7 +234,6 @@ class Constants:
 
     class NumericalSettings:
         """Settings for numerical solvers and tolerances."""
-        # ALLOWED_VALUES_TYPES = (int, float)
         STD_VALUES_TYPE = float
         ALLOWED_VALUES_TYPES = (
             int, float, np.dtype('float64'), np.dtype('int64'))

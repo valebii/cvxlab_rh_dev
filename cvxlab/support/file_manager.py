@@ -661,6 +661,7 @@ class FileManager:
             excel_file_name: str,
             excel_file_dir_path: Path | str,
             tab_name: str = None,
+            convert_native_types: bool = False,
     ) -> pd.DataFrame:
         """
         Reads a specific tab from an Excel file and returns the data as a 
@@ -704,7 +705,22 @@ class FileManager:
                 self.logger.error(msg)
                 raise ValueError(msg)
 
-        dataframe = xlsx_file.parse(tab_name)
+        dataframe = xlsx_file.parse(
+            sheet_name=tab_name, 
+            keep_default_na=convert_native_types,
+        )
+        
+        # case of native types from excel
+        if not convert_native_types:
+            # replace empty strings with None
+            dataframe.replace('', None, inplace=True)
+            # replace true/True/TRUE/false/False/FALSE with bool
+            dataframe.replace(
+                Constants.DefaultStructures.ALLOWED_BOOL, 
+                inplace=True
+            )
+
+        # replace NaN with None
         dataframe = dataframe.astype(object).where(pd.notna(dataframe), None)
 
         self.logger.debug(
