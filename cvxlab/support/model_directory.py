@@ -298,13 +298,19 @@ def _save_model_instance(
         raise ValueError(
             "Invalid model instance. Must be a valid 'Model' instance.")
 
+    if '.' in file_name:
+        if not file_name.endswith('.pkl'):
+            raise ValueError(
+                "Invalid file name. File name must end with '.pkl'.")
+    else:
+        file_name = f"{file_name}.pkl"
+
     files = FileManager(Logger())
     model_dir_path = instance.paths['model_dir']
     model_name = instance.settings['model_name']
 
     instances_dir = Constants.ConfigFiles.INSTANCES_DIR
     instances_save_path = Path(model_dir_path) / instances_dir
-    file_name = f"{file_name}.pkl"
     instance_file_path = instances_save_path / file_name
 
     if not instances_save_path.exists():
@@ -347,8 +353,14 @@ def _load_model_instance(
         source_dir_path: str | Path,
 ) -> Model:
 
+    if '.' in file_name:
+        if not file_name.endswith('.pkl'):
+            raise ValueError(
+                "Invalid file name. File name must end with '.pkl'.")
+    else:
+        file_name = f"{file_name}.pkl"
+
     files = FileManager(Logger())
-    file_name = f"{file_name}.pkl"
     file_path = Path(source_dir_path) / file_name
 
     if not file_path.exists():
