@@ -13,15 +13,16 @@ objects from configured sources and provides properties to access metadata and
 operational characteristics related to these entities.
 """
 from pathlib import Path
+from scipy.sparse import issparse
 from typing import Dict, List, Optional
 
 import pandas as pd
 import cvxpy as cp
 
-from cvxlab.constants import Constants
 from cvxlab.backend.data_table import DataTable
 from cvxlab.backend.set_table import SetTable
 from cvxlab.backend.variable import Variable
+from cvxlab.constants import Constants
 from cvxlab.log_exc import exceptions as exc
 from cvxlab.log_exc.logger import Logger
 from cvxlab.support import util
@@ -1003,6 +1004,9 @@ class Index:
 
             variable_series = variable_data.loc[sub_problem_index]
             variable_values = variable_series[variable_header].value
+
+            if issparse(variable_values):
+                variable_values = variable_values.toarray()
 
             values_dataframe = pd.DataFrame(
                 data=variable_values,
