@@ -177,7 +177,7 @@ class Model:
             Dict[str, List[str]]: A dictionary of variable types and related 
             variables keys.
         """
-        return self.core.index.dict_variables
+        return self.core.index.list_variables
 
     @property
     def is_problem_solved(self) -> bool:
