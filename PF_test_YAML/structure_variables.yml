@@ -1,0 +1,179 @@
+
+u:
+    description: use coeff matrix
+    type: exogenous
+    coordinates: [prod_agg, techs]
+    variables_info:
+        u:
+            prod_agg:
+                dim: rows
+            techs:
+                dim: cols
+
+d:
+    description: make coeff matrix
+    type: exogenous
+    coordinates: [prod, techs]
+    variables_info:
+        d:
+            prod:
+                dim: cols
+            techs:
+                dim: rows
+
+Y:
+    description: output matrix
+    type: exogenous
+    coordinates: [prod_agg,years]
+    variables_info:
+        Y:
+            prod_agg:
+                dim: rows
+            years:
+                dim: cols
+
+load_max:
+    description: load max matrix
+    type: exogenous
+    coordinates: [prod_data,techs]
+    variables_info:
+        load_max:
+            prod_data:
+                dim: rows
+            techs:
+                dim: cols
+
+load_min:
+    description: load min matrix
+    type: exogenous
+    coordinates: [prod_data,techs]
+    variables_info:
+        load_min:
+            prod_data:
+                dim: rows
+            techs:
+                dim: cols
+
+Cin:
+    description: initial capacity
+    type: exogenous
+    coordinates: [prod_data,techs]
+    variables_info:
+        Cin:
+            prod_data:
+                dim: rows
+            techs:
+                dim: cols
+
+c_inv:
+    description: investment cost
+    type: exogenous
+    coordinates: [prod_data,techs]
+    variables_info:
+        c_inv:
+            prod_data:
+                dim: rows
+            techs:
+                dim: cols
+
+c_oem:
+    description: operation cost
+    type: exogenous
+    coordinates: [prod_data,techs]
+    variables_info:
+        c_oem:
+            prod_data:
+                dim: rows
+            techs:
+                dim: cols
+
+MaxCap:
+    description: max capacity
+    type: exogenous
+    coordinates: [years,techs]
+    variables_info:
+        MaxCap:
+            years:
+                dim: cols
+            techs:
+                dim: rows
+
+# endogenous variables
+
+Q:
+    description: output matrix
+    type: endogenous
+    coordinates: [prod,years]
+    variables_info:
+        Q:
+            prod:
+                dim: cols
+            years:
+                dim: rows
+
+Q_agg:
+    description: output matrix
+    type: endogenous
+    coordinates: [prod_agg,years]
+    variables_info:
+        Q_agg:
+            prod_agg:
+                dim: rows
+            years:
+                dim: cols
+
+X:
+    description: X matrix
+    type: endogenous
+    coordinates: [years,techs]
+    variables_info:
+        X:
+            years:
+                dim: rows
+            techs:
+                dim: cols
+
+Cap:
+    description: capacity matrix
+    type: endogenous
+    coordinates: [years,techs]
+    variables_info:
+        Cap:
+            years:
+                dim: cols
+            techs:
+                dim: rows
+
+Cap_tot:
+    description: total capacity matrix
+    type: endogenous
+    coordinates: [years,techs]
+    variables_info:
+        Cap_tot:
+            years:
+                dim: cols
+            techs:
+                dim: rows
+
+# constants
+
+I_ff:
+    description: identity matrix
+    type: exogenous
+    coordinates: [prod, prod_agg]
+    variables_info:
+        I_ff:
+            prod:
+                dim: cols
+            prod_agg:
+                dim: rows
+
+T_yy:
+    description: identity matrix
+    type: constant
+    coordinates: [years]
+    variables_info:
+        T_yy:
+            value: lower_triangular
+            years:
+                dim: rows

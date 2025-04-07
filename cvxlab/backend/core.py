@@ -599,6 +599,7 @@ class Core:
             solver_verbose: bool,
             integrated_problems: bool,
             force_overwrite: bool,
+            rolling: Optional[bool] = False,            
             maximum_iterations: Optional[int] = None,
             numerical_tolerance: Optional[float] = None,
             **kwargs: Any,
@@ -674,6 +675,7 @@ class Core:
             self.solve_independent_problems(
                 solver=solver,
                 solver_verbose=solver_verbose,
+                rolling=rolling,
                 **kwargs
             )
 
@@ -713,6 +715,7 @@ class Core:
             self,
             solver: str,
             solver_verbose: bool,
+            rolling: Optional[bool] = False,
             **kwargs: Any,
     ) -> None:
         """
@@ -726,6 +729,7 @@ class Core:
             solver (str): The solver to use. If None, CVXPY will choose a solver 
                 automatically.
             verbose (bool): If set to True, the solver will print progress information.
+            rolling (bool, optional): If True, the results are loaded to the rolling database after each problem is solved.
             **kwargs (Any): Additional arguments to pass to the solver.
 
         Returns:
@@ -758,6 +762,8 @@ class Core:
                     solver=solver,
                     **kwargs
                 )
+                if rolling:
+                    self.load_results_to_database_rolling(operation='update',problem_id=str(sub_problem))               
         else:
             if numerical_problems is None:
                 msg = "Numerical problems must be defined first."
@@ -981,3 +987,134 @@ class Core:
                 name_old=sqlite_db_file_name_bkp,
                 name_new=sqlite_db_file_name,
             )
+    def load_results_to_database_rolling(
+                self,
+                operation: str,
+                problem_id: str,
+            ) -> None:
+            """
+            Loads the endogenous model results to a new SQLite database called 
+            'database_rolling'. 
+
+            Args:
+                operation (str, optional): The operation to perform on the database.
+                    Defaults to 'update'.
+
+            Returns:
+                None
+            """
+        
+            self.logger.info(
+                'Exporting endogenous model results to SQLite database "database_rolling".')
+            self.logger.info(f"Operation: {operation}")
+            self.cvxpy_endogenous_data_to_rolling_database(operation,problem_id)
+
+    def cvxpy_endogenous_data_to_rolling_database(
+            self,
+            operation: str,
+            problem_id: str,
+            suppress_warnings: bool = False,
+    ) -> None:
+        """
+        Exports data from cvxpy endogenous variables back to data tables in the 
+        rolling SQLite database for the specified problem_id.
+        This method iterates over each data table in the index. If the table's 
+        type is not 'exogenous' or 'constant', the method exports the data from 
+        the cvxpy variable to the corresponding data table in the rolling SQLite database. 
+
+        Parameters:
+            problem_id (str): The identifier for the problem to distinguish different runs.
+            operation (str): The type of database operation to perform.
+            suppress_warnings (bool, optional): If True, suppresses warnings 
+                during the data export process. Defaults to False.
+
+        Returns:
+            None
+
+        Raises:
+            TypeError: If a passed item is not an instance of the 'DataTable' class.
+            OperationalError: If no coordinates DataFrame is defined for a data table.
+
+        Notes:
+            The method logs information about the data export process.
+            The method uses a context manager to handle the database connection.
+            The data is exported using the 'dataframe_to_table' method of the 
+                SQLTools instance.
+        """
+        self.logger.info(f"Operation received: {operation}")
+        database_name = f'rolling_database_{problem_id}.sqlite'
+        database_path = os.path.join(self.paths['model_dir'], database_name)
+        self.logger.debug(
+            f"Exporting data from cvxpy endogenous variable (in data table) "
+            f"to SQLite database '{database_name}' ")
+
+        values_headers = Constants.get('_STD_VALUES_FIELD')['values'][0]
+
+        # Create a new SQLManager instance for the specified rolling database
+        rolling_sqltools = SQLManager(
+            logger=self.logger,
+            database_path=database_path,
+            database_name=database_name,
+        )
+
+        with db_handler(rolling_sqltools):
+            for data_table_key, data_table in self.index.data.items():
+
+                if not isinstance(data_table, DataTable):
+                    msg = "Passed item is not a 'DataTable' class instance."
+                    self.logger.error(msg)
+                    raise TypeError(msg)
+
+                if data_table.type in ['exogenous', 'constant']:
+                    continue
+
+                self.logger.debug(
+                    "Exporting data from cvxpy variable to the related "
+                    f"data table '{data_table_key}'. ")
+
+                if isinstance(data_table.coordinates_dataframe, pd.DataFrame):
+                    data_table_dataframe = data_table.coordinates_dataframe
+
+                elif isinstance(data_table.coordinates_dataframe, dict):
+                    data_table_dataframe = pd.concat(
+                        data_table.coordinates_dataframe.values(),
+                        ignore_index=True
+                    )
+
+                if not util.add_column_to_dataframe(
+                    dataframe=data_table_dataframe,
+                    column_header=values_headers,
+                ):
+                    if self.settings['log_level'] == 'debug' or \
+                            not suppress_warnings:
+                        self.logger.warning(
+                            f"Column '{values_headers}' already exists in data "
+                            f"table '{data_table_key}'")
+
+                if data_table.cvxpy_var is None:
+                    if self.settings['log_level'] == 'debug' or \
+                            not suppress_warnings:
+                        self.logger.warning(
+                            f"No data available in cvxpy variable '{data_table_key}'")
+                    continue
+
+                if isinstance(data_table.cvxpy_var, dict):
+
+                    cvxpy_var_values_list = []
+                    for cvxpy_var in data_table.cvxpy_var.values():
+                        cvxpy_var: cp.Variable
+                        cvxpy_var_values_list.append(cvxpy_var.value)
+
+                    cvxpy_var_data = np.vstack(cvxpy_var_values_list)
+
+                else:
+                    cvxpy_var_data = data_table.cvxpy_var.value
+
+                data_table_dataframe[values_headers] = cvxpy_var_data
+
+                rolling_sqltools.dataframe_to_table(
+                    table_name=data_table_key,
+                    dataframe=data_table_dataframe,
+                    operation=operation,
+                    suppress_warnings=suppress_warnings,
+                )

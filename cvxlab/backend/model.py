@@ -38,6 +38,7 @@ from cvxlab.support.dotdict import DotDict
 from cvxlab.support.file_manager import FileManager
 from cvxlab.support import util
 
+import shutil 
 
 class Model:
     """
@@ -447,6 +448,7 @@ class Model:
         force_overwrite: bool = False,
         integrated_problems: bool = False,
         iterations_log: bool = False,
+        rolling: Optional[bool] =  False,
         solver: Optional[str] = None,
         numerical_tolerance: Optional[float] = None,
         maximum_iterations: Optional[int] = None,
@@ -525,6 +527,7 @@ class Model:
             iterations_log=iterations_log,
             force_overwrite=force_overwrite,
             integrated_problems=integrated_problems,
+            rolling=rolling,
             numerical_tolerance=numerical_tolerance,
             maximum_iterations=maximum_iterations,
             canon_backend=cp.SCIPY_CANON_BACKEND,
@@ -698,3 +701,36 @@ class Model:
         self.logger.warning(f"Erasing model {self.settings['model_name']}.")
 
         self.files.erase_dir(self.paths['model_dir'])
+
+    def create_rolling_database(self) -> None:
+        """
+        Copies the existing database in the model directory and renames it 
+        with sqlite_db_name for each problem_key in self.core.problem.numerical_problems.keys().
+
+        Returns:
+            None
+        """
+        # Verifica l'esistenza del percorso della directory
+        if not Path(self.paths['model_dir']).exists():
+            self.logger.error(f"Directory '{self.paths['model_dir']}' does not exist.")
+            return
+
+        # Percorso del database esistente
+        existing_db_path = self.paths['model_dir'] / "database.db"
+        self.logger.debug(f"Existing database path: '{existing_db_path}'")
+
+        if not existing_db_path.exists():
+            self.logger.error(f"Existing database '{existing_db_path}' does not exist.")
+            return
+
+        for problem_key in self.core.problem.numerical_problems.keys():
+            sqlite_db_name = f'rolling_database_{problem_key}.sqlite'
+            new_db_path = self.paths['model_dir'] / sqlite_db_name
+
+            self.logger.info(f"Copying database to '{new_db_path}'.")
+
+            try:
+                shutil.copy(existing_db_path, new_db_path)
+                self.logger.info(f"Database copied and renamed to '{new_db_path}'.")
+            except Exception as e:
+                self.logger.error(f"Failed to copy and rename database: {e}")
