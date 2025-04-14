@@ -721,7 +721,7 @@ class SQLManager:
                     dataframe=dataframe,
                     column_header=id_field,
                     column_values=range(len(dataframe)),
-                    position=0,
+                    column_position=0,
                 )
 
             data = [tuple(row) for row in dataframe.values.tolist()]

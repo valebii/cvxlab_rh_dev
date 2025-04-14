@@ -255,8 +255,8 @@ class Database:
                         util.add_column_to_dataframe(
                             dataframe=dataframe,
                             column_header=table_id_header[0],
-                            column_position=0,
                             column_values=None,
+                            column_position=0,
                         )
 
                 self.sqltools.dataframe_to_table(
@@ -379,8 +379,8 @@ class Database:
                 util.add_column_to_dataframe(
                     dataframe=unpivoted_coords_df,
                     column_header=table.table_headers['id'][0],
+                    column_values=None,
                     column_position=0,
-                    column_values=None
                 )
 
                 self.sqltools.dataframe_to_table(
@@ -557,6 +557,7 @@ class Database:
                             table_name=table_key,
                             dataframe=data[table_key],
                             force_overwrite=force_overwrite,
+                            action='update',
                         )
 
         else:
@@ -575,6 +576,7 @@ class Database:
                         table_name=table_key,
                         dataframe=table,
                         force_overwrite=force_overwrite,
+                        action='update',
                     )
 
     def fill_nan_values_in_database(
