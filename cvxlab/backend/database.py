@@ -16,6 +16,8 @@ SQLite database interactions via the SQLManager.
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import pandas as pd
+
 from cvxlab.backend.data_table import DataTable
 from cvxlab.backend.index import Index
 from cvxlab.backend.set_table import SetTable
@@ -319,10 +321,17 @@ class Database:
             The unpivoting process transforms the coordinates values from a
                 dictionary format into a DataFrame format.
             The standard values field is added to store the values of the variables.
-        """
+        """       
         self.logger.debug(
-            "Adding sets information to SQLite data tables in "
-            f"'{Constants.ConfigFiles.SQLITE_DATABASE_FILE}'.")
+            "Adding sets information to SQLite data tables in " \
+            f"{Constants.ConfigFiles.SQLITE_DATABASE_FILE}."
+        )
+        
+        if lightweight:
+            self.logger.debug(
+                "Using lightweight mode: relying only on set combinations " \
+                "filtered by model variables.")
+        
 
         with db_handler(self.sqltools):
             for table_key, table in self.index.data.items():
@@ -341,10 +350,6 @@ class Database:
                 )
 
                 if lightweight:
-                    self.logger.debug(
-                        "Generating lightweight SQLite data tables relying only on "
-                        "set combinations filtered by model variables.")
-
                     dicts_list = []
                     for variable in self.index.variables.values():
                         variable: Variable
@@ -353,15 +358,16 @@ class Database:
                                 variable.all_coordinates_w_headers
                             )
 
-                    coords_dict = util.merge_dicts(
-                        dicts_list=dicts_list,
-                        unique_values=True
-                    )
-
-                    coords_to_keep_df = util.unpivot_dict_to_dataframe(
-                        data_dict=coords_dict,
-                        key_order=table_headers_list
-                    )
+                    coords_to_keep_df = pd.DataFrame()
+                    for item in dicts_list:
+                        coords_df = util.unpivot_dict_to_dataframe(
+                            data_dict=item,
+                            key_order=table_headers_list
+                        )
+                        coords_to_keep_df = pd.concat(
+                            [coords_to_keep_df, coords_df],
+                            ignore_index=True
+                        )
 
                     unpivoted_coords_df = unpivoted_coords_df.merge(
                         coords_to_keep_df,
@@ -472,6 +478,7 @@ class Database:
 
         with db_handler(self.sqltools):
             for table_key, table in self.index.data.items():
+                table: DataTable
 
                 if table_key_list != [] and table_key not in table_key_list:
                     continue
