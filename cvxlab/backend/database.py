@@ -298,10 +298,7 @@ class Database:
                     foreign_keys=table.foreign_keys,
                 )
 
-    def sets_data_to_sql_data_tables(
-            self,
-            lightweight: bool = True,
-    ) -> None:
+    def sets_data_to_sql_data_tables(self) -> None:
         """
         Transforms and loads sets data into SQLite tables, preparing them for
         variable storage.
@@ -327,11 +324,13 @@ class Database:
             f"{Constants.ConfigFiles.SQLITE_DATABASE_FILE}."
         )
         
-        if lightweight:
+        if Constants.ConfigFiles.SQLITE_DATABASE_LIGHTWEIGHT:
+            lightweight_db = True
             self.logger.debug(
                 "Using lightweight mode: relying only on set combinations " \
                 "filtered by model variables.")
-        
+        else:
+            lightweight_db = False
 
         with db_handler(self.sqltools):
             for table_key, table in self.index.data.items():
@@ -349,7 +348,7 @@ class Database:
                     key_order=table_headers_list
                 )
 
-                if lightweight:
+                if lightweight_db:
                     dicts_list = []
                     for variable in self.index.variables.values():
                         variable: Variable
@@ -368,6 +367,8 @@ class Database:
                             [coords_to_keep_df, coords_df],
                             ignore_index=True
                         )
+
+                    coords_to_keep_df = coords_to_keep_df.drop_duplicates()
 
                     unpivoted_coords_df = unpivoted_coords_df.merge(
                         coords_to_keep_df,

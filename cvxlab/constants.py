@@ -63,6 +63,7 @@ class Constants:
         SQLITE_DATABASE_FILE_TEST = 'database_expected.db'
         SQLITE_DATABASE_LIGHTWEIGHT = True
         TUTORIAL_FILE_NAME = 'API_usage_guide.ipynb'
+        TUTORIALS_FILE_PATH = 'tutorials'
         TEMPLATES_DIR = 'default'
         INSTANCES_DIR = 'instances'
 
