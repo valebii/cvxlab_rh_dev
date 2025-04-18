@@ -324,13 +324,11 @@ class Database:
             f"{Constants.ConfigFiles.SQLITE_DATABASE_FILE}."
         )
         
-        if Constants.ConfigFiles.SQLITE_DATABASE_LIGHTWEIGHT:
-            lightweight_db = True
+        lightweight_db = Constants.ConfigFiles.SQLITE_DATABASE_LIGHTWEIGHT
+        if lightweight_db:
             self.logger.debug(
                 "Using lightweight mode: relying only on set combinations " \
                 "filtered by model variables.")
-        else:
-            lightweight_db = False
 
         with db_handler(self.sqltools):
             for table_key, table in self.index.data.items():

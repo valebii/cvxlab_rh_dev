@@ -158,6 +158,12 @@ class Core:
             "Generating data structures for endogenous data tables "
             "(cvxpy objects, filters dict for data tables).")
 
+        lightweight_db = Constants.ConfigFiles.SQLITE_DATABASE_LIGHTWEIGHT
+        if lightweight_db:
+            self.logger.debug(
+                "Lightweight database mode enabled: coordinates of endogenous "
+                "data tables defined by the coordinates of variables only.")
+
         # generate dataframes and cvxpy var for endogenous data tables
         # and for variables whth type defined by problem linking logic
         for data_table_key, data_table in self.index.data.items():
@@ -170,12 +176,50 @@ class Core:
                     f"Data table '{data_table_key}' | type: {data_table.type} | "
                     "Generating dataframe and cvxpy variable.")
 
+                # get all coordinates for the data table based on sets
                 data_table.generate_coordinates_dataframes(
                     sets_split_problems=self.index.sets_split_problem_dict
                 )
 
-                if isinstance(data_table.coordinates_dataframe, pd.DataFrame):
+                # in case of lightweight database option enabled, data table
+                # coordinates dataframe are filtered to keep only coordinates 
+                # defined by the variables whithin the data table
+                if lightweight_db:
 
+                    coordinates_df_filtered = pd.DataFrame()
+                    for var_key, variable in self.index.variables.items():
+                        if var_key in data_table.variables_list:
+                            var_coords_df = util.unpivot_dict_to_dataframe(
+                                data_dict=variable.all_coordinates_w_headers
+                            )
+                            coordinates_df_filtered = pd.concat(
+                                objs=[coordinates_df_filtered, var_coords_df],
+                                ignore_index=True
+                            )
+                    
+                    coordinates_df_filtered = coordinates_df_filtered.drop_duplicates()
+
+                    if isinstance(data_table.coordinates_dataframe, pd.DataFrame):
+                        data_table.coordinates_dataframe = \
+                            data_table.coordinates_dataframe.merge(
+                                right=coordinates_df_filtered,
+                                on=list(coordinates_df_filtered.columns),
+                                how='inner'
+                            )
+
+                    elif isinstance(data_table.coordinates_dataframe, dict):
+                        for problem_key, coord_df in \
+                                data_table.coordinates_dataframe.items():
+                                                        
+                            data_table.coordinates_dataframe[problem_key] = \
+                                coord_df.merge(
+                                    right=coordinates_df_filtered,
+                                    on=list(coordinates_df_filtered.columns),
+                                    how='inner'
+                                )
+
+                # generate cvxpy variables associated with data tables
+                if isinstance(data_table.coordinates_dataframe, pd.DataFrame):
                     cvxpy_var = self.problem.create_cvxpy_variable(
                         var_type='endogenous',
                         integer=data_table.integer,
@@ -185,18 +229,14 @@ class Core:
 
                 # in case of problem with sets split, multiple endogenous variables
                 # are created and stored in a dictionary.
-                # Notice that all endogenous variables are defined for all scenarios
-                # defined by sets_split_problems
                 elif isinstance(data_table.coordinates_dataframe, dict):
-
                     cvxpy_var = {}
 
-                    for problem_key, variable_df in data_table.coordinates_dataframe.items():
-
+                    for problem_key, coord_df in data_table.coordinates_dataframe.items():
                         cvxpy_var[problem_key] = self.problem.create_cvxpy_variable(
                             var_type='endogenous',
                             integer=data_table.integer,
-                            shape=(len(variable_df), 1),
+                            shape=(len(coord_df), 1),
                             name=f"{data_table_key}_{problem_key}",
                         )
 

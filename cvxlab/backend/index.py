@@ -655,6 +655,31 @@ class Index:
                 self.logger.error(msg)
                 raise exc.SettingsError(msg)
 
+    def load_coordinates_to_data_index(self) -> None:
+        """
+        Populates the 'coordinates_values' dictionary of each data table in the
+        index with coordinate items from corresponding sets based on headers
+        defined in 'coordinates_headers'.
+        This method maps set items to their respective data tables,
+        facilitating direct access to these items for operations that require
+        context-specific data, such as data processing or analysis tasks.
+        Ensures that each data table's coordinates are updated with actual items
+        from the sets as specified in the table's coordinate headers.
+        """
+        self.logger.debug("Loading variable coordinates to Index.data.")
+
+        for table in self.data.values():
+            table: DataTable
+
+            for set_key, set_header in table.coordinates_headers.items():
+                if set_key in self.sets:
+                    table.coordinates_values[set_header] = self.sets[set_key].set_items
+                else:
+                    msg = f"Set key '{set_key}' not found in sets while " \
+                        "loading coordinates"
+                    self.logger.error(msg)
+                    raise exc.MissingDataError(msg)
+                
     def load_all_coordinates_to_variables_index(self) -> None:
         """
         Populates the 'coordinates' attribute of each variable in the index with
@@ -766,43 +791,6 @@ class Index:
                         items_column_header = set_table.set_name_header
                         variable.coordinates[coord_category][coord_key] = \
                             list(set_data[items_column_header])
-
-    def load_coordinates_to_data_index(self) -> None:
-        """
-        Populates the 'coordinates_values' dictionary of each data table in the
-        index with coordinate items from corresponding sets based on headers
-        defined in 'coordinates_headers'.
-        This method maps set items to their respective data tables,
-        facilitating direct access to these items for operations that require
-        context-specific data, such as data processing or analysis tasks.
-        Ensures that each data table's coordinates are updated with actual items
-        from the sets as specified in the table's coordinate headers.
-        """
-        self.logger.debug("Loading variable coordinates to Index.data.")
-
-        if Constants.ConfigFiles.SQLITE_DATABASE_LIGHTWEIGHT:
-            lightweight_db = True
-            self.logger.debug(
-                "Using lightweight mode: data tables coordinates filtered " \
-                "by model variables coordinates.")
-        else:
-            lightweight_db = False
-
-        for table in self.data.values():
-            table: DataTable
-
-            # if lightweight_db:
-            #     pass
-
-            # else:
-            for set_key, set_header in table.coordinates_headers.items():
-                if set_key in self.sets:
-                    table.coordinates_values[set_header] = self.sets[set_key].set_items
-                else:
-                    msg = f"Set key '{set_key}' not found in sets while " \
-                        "loading coordinates"
-                    self.logger.error(msg)
-                    raise exc.MissingDataError(msg)
 
     def map_vars_aggregated_dims(self) -> None:
         """

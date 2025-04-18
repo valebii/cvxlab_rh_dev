@@ -277,10 +277,9 @@ class Model:
             self.logger.error(msg)
             raise exc.SettingsError(msg) from e
 
+        self.core.index.load_coordinates_to_data_index()
         self.core.index.load_all_coordinates_to_variables_index()
         self.core.index.filter_coordinates_in_variables_index()
-        self.core.index.load_coordinates_to_data_index()
-
         self.core.index.check_variables_coherence()
         self.core.index.map_vars_aggregated_dims()
         self.core.index.fetch_scenarios_info()
