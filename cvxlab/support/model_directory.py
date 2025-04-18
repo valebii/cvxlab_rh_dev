@@ -15,8 +15,8 @@ def create_model_dir(
     model_dir_name: str,
     main_dir_path: str,
     force_overwrite: bool = False,
-    export_tutorial: bool = True,
-    template_file_type: str = 'yml',
+    export_tutorial: bool = False,
+    template_file_type: Literal['yml', 'xlsx'] = 'yml',
 ) -> None:
 
     files = FileManager(Logger())
@@ -71,8 +71,9 @@ def create_model_dir(
 
     if export_tutorial:
         file_name = Constants.ConfigFiles.TUTORIAL_FILE_NAME
+        file_path = Constants.ConfigFiles.TUTORIALS_FILE_PATH
         files.copy_file_to_destination(
-            path_source='',
+            path_source=file_path,
             path_destination=model_dir_path,
             file_name=file_name,
             file_new_name=file_name,

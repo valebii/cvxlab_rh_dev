@@ -310,7 +310,8 @@ class FileManager:
     Raises:
         FileNotFoundError: If the source file does not exist.
     """
-        source_path = Path(path_source) / file_name
+        root_path = Path(__file__).parents[2]
+        source_path = Path(root_path) / path_source / file_name
         destination_file_name = file_new_name or source_path.name
         destination_file_path = Path(path_destination) / destination_file_name
 
