@@ -277,9 +277,10 @@ class Model:
             self.logger.error(msg)
             raise exc.SettingsError(msg) from e
 
-        self.core.index.load_coordinates_to_data_index()
         self.core.index.load_all_coordinates_to_variables_index()
         self.core.index.filter_coordinates_in_variables_index()
+        self.core.index.load_coordinates_to_data_index()
+
         self.core.index.check_variables_coherence()
         self.core.index.map_vars_aggregated_dims()
         self.core.index.fetch_scenarios_info()
@@ -300,7 +301,6 @@ class Model:
         """
 
         use_existing_data = self.settings['use_existing_data']
-        lightweight_db = Constants.ConfigFiles.SQLITE_DATABASE_LIGHTWEIGHT
         sqlite_db_name = Constants.ConfigFiles.SQLITE_DATABASE_FILE
         sqlite_db_path = Path(self.paths['sqlite_database'])
         input_files_dir_path = Path(self.paths['input_data_dir'])
@@ -333,7 +333,7 @@ class Model:
             self.core.database.create_blank_sqlite_database()
             self.core.database.load_sets_to_sqlite_database()
             self.core.database.generate_blank_sqlite_data_tables()
-            self.core.database.sets_data_to_sql_data_tables(lightweight_db)
+            self.core.database.sets_data_to_sql_data_tables()
         else:
             self.logger.info(
                 f"Relying on existing SQLite database '{sqlite_db_name}' ")
