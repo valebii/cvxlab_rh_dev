@@ -324,12 +324,6 @@ class Database:
             f"{Constants.ConfigFiles.SQLITE_DATABASE_FILE}."
         )
         
-        lightweight_db = Constants.ConfigFiles.SQLITE_DATABASE_LIGHTWEIGHT
-        if lightweight_db:
-            self.logger.debug(
-                "Using lightweight mode: relying only on set combinations " \
-                "filtered by model variables.")
-
         with db_handler(self.sqltools):
             for table_key, table in self.index.data.items():
                 table: DataTable
@@ -346,40 +340,41 @@ class Database:
                     key_order=table_headers_list
                 )
 
-                if lightweight_db:
-                    dicts_list = []
-                    for variable in self.index.variables.values():
-                        variable: Variable
-                        if variable.related_table == table_key:
-                            dicts_list.append(
-                                variable.all_coordinates_w_headers
-                            )
-
-                    coords_to_keep_df = pd.DataFrame()
-                    for item in dicts_list:
-                        coords_df = util.unpivot_dict_to_dataframe(
-                            data_dict=item,
-                            key_order=table_headers_list
-                        )
-                        coords_to_keep_df = pd.concat(
-                            [coords_to_keep_df, coords_df],
-                            ignore_index=True
+                # data table coordinates dataframe are filtered to keep only 
+                # coordinates defined by the variables whithin the data table
+                dicts_list = []
+                for variable in self.index.variables.values():
+                    variable: Variable
+                    if variable.related_table == table_key:
+                        dicts_list.append(
+                            variable.all_coordinates_w_headers
                         )
 
-                    coords_to_keep_df = coords_to_keep_df.drop_duplicates()
-
-                    unpivoted_coords_df = unpivoted_coords_df.merge(
-                        coords_to_keep_df,
-                        on=table_headers_list,
-                        how='inner'
+                coords_to_keep_df = pd.DataFrame()
+                for item in dicts_list:
+                    coords_df = util.unpivot_dict_to_dataframe(
+                        data_dict=item,
+                        key_order=table_headers_list
+                    )
+                    coords_to_keep_df = pd.concat(
+                        [coords_to_keep_df, coords_df],
+                        ignore_index=True
                     )
 
-                    if not util.check_dataframes_equality(
-                        df_list=[coords_to_keep_df, unpivoted_coords_df]
-                    ):
-                        msg = "Dataframes are not equal after merge operation."
-                        self.logger.error(msg)
-                        raise exc.OperationalError(msg)
+                coords_to_keep_df = coords_to_keep_df.drop_duplicates()
+
+                unpivoted_coords_df = unpivoted_coords_df.merge(
+                    coords_to_keep_df,
+                    on=table_headers_list,
+                    how='inner'
+                )
+
+                if not util.check_dataframes_equality(
+                    df_list=[coords_to_keep_df, unpivoted_coords_df]
+                ):
+                    msg = "Dataframes are not equal after merge operation."
+                    self.logger.error(msg)
+                    raise exc.OperationalError(msg)
 
                 util.add_column_to_dataframe(
                     dataframe=unpivoted_coords_df,
