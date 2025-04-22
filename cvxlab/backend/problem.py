@@ -378,8 +378,6 @@ class Problem:
 
         # conversion to sparse matrix if data is sparse
         if util.is_sparse(data_values, sparse_threshold):
-            self.logger.debug(
-                f"Variable '{var_key}' | Converting data to sparse matrix.")
             data_values_converted = csr_matrix(data_values)
         else:
             data_values_converted = data_values
