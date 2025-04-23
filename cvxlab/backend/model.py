@@ -104,8 +104,9 @@ class Model:
             log_format=log_format,
         )
 
-        self.logger.info(f"Generating '{model_dir_name}' model instance.")
-
+        self.logger.info(
+            f"Generating '{model_dir_name}' model instance.")
+        
         self.files = FileManager(logger=self.logger)
 
         self.settings = DotDict({
@@ -258,12 +259,8 @@ class Model:
         Return:
             None
         """
-        if self.settings['use_existing_data']:
-            self.logger.info(
-                'Loading existing sets data and variable coordinates to Index.')
-        else:
-            self.logger.info(
-                'Loading new sets data and variable coordinates to Index.')
+        self.logger.info(
+            'Generating model Index (sets data and variable coordinates).')
 
         try:
             sets_xlsx_file = Constants.ConfigFiles.SETS_FILE
@@ -281,7 +278,6 @@ class Model:
         self.core.index.load_all_coordinates_to_variables_index()
         self.core.index.filter_coordinates_in_variables_index()
         self.core.index.check_variables_coherence()
-        self.core.index.map_vars_aggregated_dims()
         self.core.index.fetch_scenarios_info()
 
         if fetch_foreign_keys:
@@ -431,15 +427,11 @@ class Model:
         Return:
             None
         """
-        self.logger.info(
-            "Loading and validating symbolic problem, initializing "
-            "numerical problem.")
+        self.logger.info("Numerical problem generation.")
 
         self.core.load_and_validate_symbolic_problem(force_overwrite)
         self.core.generate_numerical_problem(
             allow_none_values, force_overwrite)
-
-        self.logger.info('Numerical problem successfully initialized.')
 
     def run_model(
         self,

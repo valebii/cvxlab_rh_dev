@@ -154,9 +154,8 @@ class Core:
             The DataFrames for exogenous and endogenous variables are generated
                 using the 'generate_vars_dataframe' method of the Problem instance.
         """
-        self.logger.debug(
-            "Generating data structures for endogenous data tables "
-            "(cvxpy objects, filters dict for data tables).")
+        self.logger.info(
+            "Generating data structures for endogenous data tables.")
 
         # generate dataframes and cvxpy var for endogenous data tables
         # and for variables whth type defined by problem linking logic
@@ -235,7 +234,7 @@ class Core:
 
         # generating variables dataframes with cvxpy var and filters dictionary
         # (endogenous vars will be sliced from existing cvxpy var in data table)
-        self.logger.debug(
+        self.logger.info(
             "Generating data structures for all variables and constants.")
 
         for var_key, variable in self.index.variables.items():
@@ -323,7 +322,7 @@ class Core:
             The data is assigned to the cvxpy variable using the 'data_to_cvxpy_variable'
                 method of the Problem instance.
         """
-        self.logger.debug(
+        self.logger.info(
             f"Fetching data from '{self.settings['sqlite_database_file']}' "
             "to cvxpy exogenous variables.")
 
@@ -583,11 +582,10 @@ class Core:
             force_overwrite: bool = False,
     ) -> None:
 
+        self.logger.debug("Loading and validating symbolic problem.")
+
         self.problem.load_symbolic_problem_from_file(force_overwrite)
         self.problem.check_symbolic_problem_coherence()
-
-        self.logger.debug(
-            "Symbolic problem successfully loaded and validated.")
 
     def generate_numerical_problem(
             self,
@@ -615,12 +613,10 @@ class Core:
             The numerical problems are generated using the 'generate_numerical_problems' 
                 method of the Problem instance.
         """
-        self.logger.debug("Generating dataframes with cvxpy problems.")
-
         self.initialize_problems_variables()
-        self.data_to_cvxpy_exogenous_vars(
-            allow_none_values=allow_none_values)
+        self.data_to_cvxpy_exogenous_vars(allow_none_values=allow_none_values)
 
+        self.logger.info("Generating cvxpy numerical problem/s.")
         self.problem.generate_numerical_problems(force_overwrite)
 
     def solve_numerical_problems(
@@ -894,6 +890,10 @@ class Core:
                 while True:
                     try:
                         iter_count += 1
+                        self.logger.info(
+                            f"Iteration count: {iter_count} | "
+                            f"iterations limit: {maximum_iterations}")
+
                         if iter_count > maximum_iterations:
                             self.logger.warning(
                                 "Maximum number of iterations hit before reaching "
@@ -908,6 +908,10 @@ class Core:
                         #     print(f'{iter_count}\tcc \t dd')
 
                         if iter_count > 1:
+                            self.logger.info(
+                                "Updating exogenous variables data from "
+                                "previous iteration.")
+
                             self.data_to_cvxpy_exogenous_vars(
                                 scenarios_idx=scenario_idx)
 
@@ -921,6 +925,7 @@ class Core:
 
                         for sub_problem, problem_df \
                                 in self.problem.numerical_problems.items():
+                            
                             self.problem.solve_problem_dataframe(
                                 problem_name=sub_problem,
                                 problem_dataframe=problem_df,
@@ -946,6 +951,10 @@ class Core:
                                 f"{scenario_coords}."
                             )
                             break
+                            
+                        self.logger.info(
+                            "Problems solved successfully. Exporting data to "
+                            "SQLite database.")
 
                         self.cvxpy_endogenous_data_to_database(
                             scenarios_idx=scenario_idx,
@@ -977,15 +986,15 @@ class Core:
                         if relative_difference_above:
                             self.logger.info(
                                 "Data tables with highest relative difference above "
-                                f"treshold ({numerical_tolerance}):"
+                                f"treshold ({numerical_tolerance} %):"
                             )
                             for table, value in relative_difference_above.items():
                                 self.logger.info(
                                     f"Data table '{table}': {round(value, 5)}")
                         else:
                             self.logger.info(
-                                "Numerical convergence reached - Scenario "
-                                f"{scenario_coords}.")
+                                f"Numerical convergence reached in {iter_count} "
+                                f"iterations | Scenario {scenario_coords}.")
                             break
 
                     finally:
