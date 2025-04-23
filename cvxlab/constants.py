@@ -70,7 +70,6 @@ class Constants:
         """Standard headers and field names."""
         NAME = 'name'
         FILTERS = 'filters'
-        AGGREGATION = 'aggregation'
         CVXPY_VAR = 'variable'
         SUB_PROBLEM_KEY = 'sub_problem_key'
         FILTER_DICT_KEY = 'filter'
@@ -91,7 +90,6 @@ class Constants:
 
         SET_TABLE_NAME_PREFIX = '_set_'
         COLUMN_NAME_SUFFIX = '_Name'
-        COLUMN_AGGREGATION_SUFFIX = '_Aggregation'
 
     class DefaultStructures:
         """Default structures for data validation and for generating templates."""
@@ -207,8 +205,8 @@ class Constants:
             'arange_1': (util_constants.arange, {}),
             'arange_0': (util_constants.arange, {'start_from': 0}),
             'lower_triangular': (util_constants.tril, {}),
-            'identity_rcot': (util_constants.identity_rcot, {}),
         }
+        
         ALLOWED_OPERATORS = {
             '+': '+',
             '-': '-',

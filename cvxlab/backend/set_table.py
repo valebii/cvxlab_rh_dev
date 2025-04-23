@@ -53,8 +53,6 @@ class SetTable:
 
     Methods:
         set_name_header: Returns the standard name header from the table headers.
-        set_aggregation_header: Returns the aggregation header from the table 
-            headers.
         set_excel_file_headers: List of headers formatted for Excel files.
         set_filters_dict: Dictionary representing filters with headers as keys 
             and filter values as lists.
@@ -103,23 +101,6 @@ class SetTable:
         """
         if self.table_headers is not None:
             return self.table_headers[Constants.Labels.NAME][0]
-        return None
-
-    @property
-    def set_aggregation_header(self) -> str | None:
-        """
-        Retrieves the aggregation header from the table headers, used for data 
-        aggregation operations.
-
-        Returns:
-            str | None: The aggregation header if defined in the table headers, 
-                otherwise None.
-        """
-        if self.table_headers is not None:
-            aggregation_key = Constants.Labels.AGGREGATION
-
-            if aggregation_key in self.table_headers:
-                return self.table_headers[aggregation_key][0]
         return None
 
     @property
@@ -195,21 +176,17 @@ class SetTable:
     def fetch_attributes(self, set_info: dict) -> None:
 
         col_name_suffix = Constants.Labels.COLUMN_NAME_SUFFIX
-        col_agg_suffix = Constants.Labels.COLUMN_AGGREGATION_SUFFIX
         filters_header = Constants.Labels.FILTERS
         name_header = Constants.Labels.NAME
-        aggregation_header = Constants.Labels.AGGREGATION
 
         for key, value in set_info.items():
             if key != filters_header and value is not None:
                 setattr(self, key, value)
 
+        # column with name of set entries
         self.table_structure[name_header] = self.name + col_name_suffix
 
-        if not self.split_problem:
-            self.table_structure[aggregation_header] = \
-                self.name + col_agg_suffix
-
+        # column with filter values
         if filters_header in set_info:
             self.table_structure[filters_header] = {}
             filters_info: dict = set_info[filters_header]
@@ -235,7 +212,6 @@ class SetTable:
         """
         name_key = Constants.Labels.NAME
         filters_key = Constants.Labels.FILTERS
-        aggregation_key = Constants.Labels.AGGREGATION
         generic_field_type = Constants.Labels.GENERIC_FIELD_TYPE
 
         # Fetching filters
@@ -243,9 +219,6 @@ class SetTable:
 
         # Fetching table headers
         name_header = self.table_structure.get(name_key, None)
-        aggregation_header = self.table_structure.get(
-            aggregation_key, None)
-
         filters_headers = {
             'filter_' + str(key): value['header']
             for key, value in self.table_structure.get(filters_key, {}).items()
@@ -255,11 +228,6 @@ class SetTable:
             key: [value, generic_field_type]
             for key, value in {name_key: name_header, **filters_headers}.items()
         }
-
-        if aggregation_header:
-            self.table_headers[aggregation_key] = [
-                aggregation_header, generic_field_type
-            ]
 
     def __repr__(self) -> str:
         output = ''
