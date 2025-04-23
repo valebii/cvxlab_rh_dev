@@ -52,59 +52,6 @@ def tril(dimension: Tuple[int]) -> np.array:
     return matrix
 
 
-def identity_rcot(
-        related_dims_map: pd.DataFrame,
-        rows_order: list[str],
-        cols_order: list[str],
-) -> np.ndarray:
-    """
-    Generate a special identity matrix from a map of columns and rows items 
-    provided by a 'related_dims_map' dataframe. 
-
-    Parameters:
-        related_dims_map: pandas DataFrame containing rows and corresponding
-            columns items.
-
-    Returns:
-        numpy ndarray containing the special identity matrix.
-
-    Raises:
-        ValueError: If 'related_dims_map' is not a DataFrame or if it does not 
-            contain 'rows' and 'cols' columns.
-    """
-    if not isinstance(related_dims_map, pd.DataFrame):
-        raise ValueError("'related_dims_map' must be a pandas DataFrame.")
-
-    if not {'rows', 'cols'}.issubset(related_dims_map.columns):
-        raise ValueError(
-            "'related_dims_map' must contain 'rows' and 'cols' columns labels.")
-
-    error_list = []
-    if not set(rows_order).issubset(related_dims_map['rows']):
-        error_list.append("'rows_order' do not match 'related_dims_map.rows'.")
-    if not set(cols_order).issubset(related_dims_map['cols']):
-        error_list.append("'cols_order' do not match 'related_dims_map.cols'.")
-    if error_list:
-        raise ValueError("\n".join(error_list))
-
-    related_dims_map['value'] = 1
-
-    pivot_df = related_dims_map.pivot_table(
-        index='rows',
-        columns='cols',
-        values='value',
-        aggfunc='sum'
-    ).fillna(0).astype(int)
-
-    pivot_df_reordered = pivot_df.reindex(
-        index=rows_order,
-        columns=cols_order,
-        fill_value=0
-    )
-
-    return pivot_df_reordered.values
-
-
 def arange(
         shape_size: Iterable[int],
         start_from: int = 1,

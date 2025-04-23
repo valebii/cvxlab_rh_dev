@@ -792,96 +792,6 @@ class Index:
                         variable.coordinates[coord_category][coord_key] = \
                             list(set_data[items_column_header])
 
-    def map_vars_aggregated_dims(self) -> None:
-        """
-        Maps aggregated dimensions for variables identified as constants. This
-        process involves linking each variable's dimension sets to specific
-        aggregated data mappings based on configurations in the sets.
-        For each constant variable, the method looks up the corresponding sets,
-        extracts necessary header information, and applies any defined aggregation
-        logic. If successful, the aggregation map is stored within the variable's
-        attributes, enhancing the variable's utility in aggregated data contexts.
-        Variables not marked as 'constant' are skipped. If any referenced set
-        is missing or improperly configured, the mapping process for that variable
-        is aborted.
-        """
-        self.logger.debug(
-            "Identifying aggregated dimensions for constants coordinates.")
-
-        for variable in self.variables.values():
-            variable: Variable
-
-            if not variable.type == 'constant':
-                continue
-
-            set_items_agg_map = pd.DataFrame()
-            set_items = pd.DataFrame()
-
-            for dim_key, dim in variable.dims_sets.items():
-                dim_set: SetTable = getattr(self.sets, str(dim), None)
-
-                if not dim_set:
-                    break
-
-                name_label = Constants.Labels.NAME
-                aggregation_label = Constants.Labels.AGGREGATION
-
-                if dim_set.table_headers is not None:
-                    name_header_filter = dim_set.table_headers.get(
-                        name_label, [None])[0]
-
-                    aggregation_header_filter = dim_set.table_headers.get(
-                        aggregation_label, [None])[0]
-                else:
-                    name_header_filter = None
-                    aggregation_header_filter = None
-
-                if dim_set.data is None:
-                    msg = f"Data for set '{dim_set}' are missing."
-                    self.logger.error(msg)
-                    raise exc.MissingDataError(msg)
-
-                if aggregation_label in dim_set.table_headers and \
-                        not all(dim_set.data[aggregation_header_filter].isna()):
-                    set_items_agg_map = dim_set.data[[
-                        name_header_filter, aggregation_header_filter]].copy()
-                    set_items_agg_map.rename(
-                        columns={name_header_filter: dim_key},
-                        inplace=True,
-                    )
-                    # renaming column representing filtered dimension
-                else:
-                    set_items = dim_set.data[[name_header_filter]].copy()
-                    set_items.rename(
-                        columns={name_header_filter: dim_key},
-                        inplace=True,
-                    )
-
-                if not set_items_agg_map.empty and set_items is not None:
-                    if set(set_items_agg_map[aggregation_header_filter]) == \
-                            set(set_items.values.flatten()):
-
-                        # renaming column representing non-filtered dimension
-                        set_items_agg_map.rename(
-                            columns={
-                                aggregation_header_filter: set_items.columns[0]
-                            },
-                            inplace=True,
-                        )
-
-                        # filtering rows and cols (in case of filtered vars)
-                        filter_dict = {
-                            'rows': variable.dims_items[0],
-                            'cols': variable.dims_items[1],
-                        }
-                        set_items_agg_map_filtered = util.filter_dataframe(
-                            df_to_filter=set_items_agg_map,
-                            filter_dict=filter_dict,
-                        )
-
-                        variable.related_dims_map = set_items_agg_map_filtered
-                        break
-
     def fetch_set_data(
             self,
             set_key: str,
@@ -1022,7 +932,7 @@ class Index:
         sub-problems). This dataframes serves as the base for building the problems
         dataframes.
         """
-        self.logger.info("Fetching scenario/s information to Index.")
+        self.logger.debug("Fetching scenario/s information to Index.")
 
         scenarios_coordinates = {}
         list_sets_split_problem = list(self.sets_split_problem_dict.values())

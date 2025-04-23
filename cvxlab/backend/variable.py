@@ -535,7 +535,6 @@ class Variable:
             'identity': identity matrix.
             'sum_vector': summation vector (vector of 1s).
             'lower_triangular': lower triangular matrix of 1s(inc. diagonal)
-            'identity_rcot': special identity matrix for rcot problems
             'arange_0': vector/matrix with a range from 0 up to dimension size
             'arange_1': vector/matrix with a range from 1 up to dimension size
 
