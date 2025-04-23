@@ -425,7 +425,6 @@ class Problem:
         var_value = variable.define_constant(variable.value)
 
         if util.is_sparse(var_value, sparse_threshold):
-            self.logger.debug("Converting constant values to sparse matrix.")
             var_value = csr_matrix(var_value)
 
         result = self.create_cvxpy_variable(
@@ -614,7 +613,7 @@ class Problem:
 
         self.logger.debug(
             "Loading and validating structure of symbolic problem from "
-            f"'{source}' file.")
+            f"'{source}' source.")
 
         data = self.files.load_data_structure(
             structure_key=problem_key,
@@ -679,110 +678,9 @@ class Problem:
             raise exc.SettingsError(msg)
 
     def check_symbolic_problem_coherence(self) -> None:
-
         self.logger.debug(
-            f"Validating symbolic problem expressions coherence with variables [TBD].")
-
+            f"Validating symbolic problem expressions coherence with variables [TO BE DEVELOPED].")
         pass
-
-    def load_symbolic_problem_from_file_bkp(
-            self,
-            force_overwrite: bool = False,
-    ) -> None:
-        """
-        Loads a symbolic problem from a specified file into the system. The 
-        symbolic problem defines the mathematical expressions and constraints 
-        for the linear programming CVXPY model.
-        If a symbolic problem is already loaded, the method will prompt the 
-        user to confirm whether to overwrite it. The problem is only reloaded 
-        from the file if the user explicitly confirms, or if 'force_overwrite' 
-        is set to True.
-        One or more symbolic problems can be loaded, depending on the structure
-        of the problem file. One problem: dictionary with one level. More problems:
-        each problem correspond to a key value pair in the dictionary.
-
-        Parameters:
-            force_overwrite (bool, optional): If True, the existing symbolic 
-                problem will be overwritten without user confirmation. 
-                Defaults to False.
-
-        Notes:
-            The problem definition is expected to be in a file specified by the 
-                system's constants configuration. The file should contain a 
-                dictionary with keys matching the constants '_OBJECTIVE_HEADER' 
-                and '_CONSTRAINTS_HEADER'.
-
-        Raises:
-            SettingsError: If the symbolic problem structure is invalid.
-        """
-        problem_file_name = Constants.ConfigFiles.SETUP_INFO[2] + '.yml'
-        problem_keys = [
-            Constants.Labels.OBJECTIVE,
-            Constants.Labels.CONSTRAINTS,
-        ]
-
-        if self.symbolic_problem is not None:
-            if not force_overwrite:
-                self.logger.warning("Symbolic problem already loaded.")
-                user_input = input("Update symbolic problem? (y/[n]): ")
-
-                if user_input.lower() != 'y':
-                    self.logger.info("Symbolic problem NOT updated.")
-                    return
-            else:
-                self.logger.info("Symbolic problem updated.")
-
-        self.logger.debug(
-            f"Loading symbolic problem from '{problem_file_name}' file.")
-
-        data = self.files.load_file(
-            file_name=problem_file_name,
-            dir_path=self.paths['model_dir'],
-        )
-
-        if isinstance(data, dict):
-
-            if util.find_dict_depth(data) == 1:
-
-                if not util.items_in_list(data.keys(), problem_keys):
-                    msg = "Invalid symbolic problem structure. Allowed problem " \
-                        f"keys: '{problem_keys}'. Passed keys: '{data.keys()}' " \
-                        f"Check '{problem_file_name}' file."
-                    self.logger.error(msg)
-                    raise exc.SettingsError(msg)
-
-                self.symbolic_problem = DotDict(data)
-                self.logger.debug(
-                    "Symbolic problem successfully loaded.")
-
-            elif util.find_dict_depth(data) == 2:
-
-                self.symbolic_problem = {}
-
-                for key, problem in data.items():
-
-                    if not isinstance(problem, dict) or \
-                            not util.items_in_list(problem.keys(), problem_keys):
-                        msg = "Invalid symbolic problem structure. Allowed problem " \
-                            f"keys: '{problem_keys}'. Passed keys: '{data.keys()}' " \
-                            f"Check '{problem_file_name}' file."
-                        self.logger.error(msg)
-                        raise exc.SettingsError(msg)
-
-                    self.symbolic_problem[key] = DotDict(problem)
-                    self.logger.debug(
-                        f"Symbolic problem '{key}' successfully loaded.")
-
-            else:
-                msg = "Invalid symbolic problem structure. " \
-                    f"Check '{problem_file_name}' file."
-                self.logger.error(msg)
-                raise exc.SettingsError(msg)
-
-        else:
-            msg = f"Invalid problem data type. Check '{problem_file_name}' file."
-            self.logger.error(msg)
-            raise exc.SettingsError(msg)
 
     def parse_allowed_symbolic_vars(
             self,
@@ -1534,25 +1432,23 @@ class Problem:
             cvxpy_problem: cp.Problem = problem_dataframe.at[
                 scenario, problem_header]
 
-            if problem_name:
+            if problem_name is not None:
                 msg = f"Solving cvxpy sub-problem '{problem_name}'"
             else:
                 msg = "Solving cvxpy problem"
 
             if scenario_info:
-                msg += f" - Scenario {scenario_info}."
+                msg += f" | Scenario {scenario_info}."
 
             self.logger.info(msg)
 
             cvxpy_problem.solve(
                 solver=solver, verbose=solver_verbose, **kwargs)
 
-            # an optional informative solution report should be printed (independent from logger)
-            # self.logger.debug(f"Problem status: '{cvxpy_problem.status}'")
+            self.logger.info(f"Problem status: '{cvxpy_problem.status}'")
 
-            problem_dataframe.at[
-                scenario, status_header
-            ] = cvxpy_problem.status
+            problem_dataframe.at[scenario, status_header] = \
+                    cvxpy_problem.status
 
     def fetch_problem_status(self) -> None:
         """
