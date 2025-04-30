@@ -15,6 +15,10 @@ ensuring consistent log behavior across different modules of the package.
 """
 
 import logging
+import time
+
+from contextlib import contextmanager
+from typing import Literal
 
 
 class Logger:
@@ -39,31 +43,67 @@ class Logger:
         log_format (str): The format used for log messages, defaults to 'minimal'.
     """
 
+    LEVELS = {
+        'INFO': logging.INFO,
+        'DEBUG': logging.DEBUG,
+        'WARNING': logging.WARNING,
+        'ERROR': logging.ERROR,
+        'CRITICAL': logging.CRITICAL,
+    }
+
+    FORMATS = {
+        'minimal': '%(levelname)s | %(message)s',
+        'standard': '%(levelname)s | %(name)s | %(message)s',
+        'detailed': '%(asctime)s | %(levelname)s | %(name)s | %(message)s',
+    }
+
+    COLORS = {
+        # set warning to orange
+        'WARNING': '\033[38;5;214m',  # Orange
+        'ERROR': '\033[31m',  # Red
+        'DEBUG': '\033[32m',  # Green
+        'RESET': '\033[0m',  # Reset to default
+    }
+
     def __init__(
             self,
             logger_name: str = 'default_logger',
-            log_level: str = 'INFO',
-            log_format: str = 'minimal',
+            log_level: Literal['INFO', 'DEBUG', 'WARNING', 'ERROR'] = 'INFO',
+            log_format: Literal[
+                'minimal', 'standard', 'detailed'] = 'standard',
     ) -> None:
 
-        formats = {
-            'standard': '%(asctime)s | %(levelname)s | %(name)s | %(message)s',
-            'minimal': '%(levelname)s | %(name)s | %(message)s'
-        }
-
         self.log_format = log_format
-        self.str_format = formats[log_format]
-
+        self.str_format = self.FORMATS[log_format]
         self.logger = logging.getLogger(logger_name)
+
+        if isinstance(log_level, str):
+            level = self.LEVELS.get(log_level.upper(), logging.INFO)
+        else:
+            level = log_level
+
+        self.logger.setLevel(level)
 
         if not self.logger.handlers:
             self.logger.setLevel(log_level)
             formatter = logging.Formatter(self.str_format)
             stream_handler = logging.StreamHandler()
             stream_handler.setLevel(log_level)
-            stream_handler.setFormatter(formatter)
-            stream_handler.propagate = False
+            stream_handler.setFormatter(self.get_colors(formatter))
             self.logger.addHandler(stream_handler)
+
+    def get_colors(self, formatter):
+        """
+        Wraps the formatter to apply colors based on log level.
+        """
+        class ColoredFormatter(logging.Formatter):
+            def format(self, record):
+                color = Logger.COLORS.get(record.levelname, '')
+                reset = Logger.COLORS['RESET']
+                formatted = super().format(record)
+                return f"{color}{formatted}{reset}"
+
+        return ColoredFormatter(formatter._fmt)
 
     def get_child(self, name: str) -> 'Logger':
         """
@@ -88,9 +128,7 @@ class Logger:
         new_logger.logger.propagate = False
         return new_logger
 
-    def log(self,
-            message: str,
-            level: str = logging.INFO):
+    def log(self, message: str, level: str = logging.INFO) -> None:
         """Basic log message. 
 
         Args:
@@ -115,3 +153,68 @@ class Logger:
     def error(self, message: str):
         """ERROR log message."""
         self.logger.log(msg=message, level=logging.ERROR)
+
+    @contextmanager
+    def log_timing(
+            self,
+            message: str,
+            level: str = 'info',
+            log_format: str = None,
+            success: bool = True,
+    ):
+        """
+        Context manager to time the execution of a code block and log the duration.
+
+        Args:
+            message (str): The message that will be logged at the start of the task.
+            level (str): The log level for the messages (e.g., 'info', 'debug', etc.)
+        """
+        log_level = self.LEVELS.get(level.upper(), logging.INFO)
+        log_function = getattr(
+            self.logger,
+            logging.getLevelName(log_level).lower()
+        )
+
+        log_function(message)
+        status = {'success': success}
+
+        if log_format:
+            original_formatter = self.logger.handlers[0].formatter
+            formatter = logging.Formatter(log_format)
+            self.logger.handlers[0].setFormatter(formatter)
+        else:
+            original_formatter = None
+
+        start_time = time.time()
+
+        try:
+            yield status
+        except Exception:
+            status['success'] = False
+            raise
+        finally:
+            end_time = time.time()
+            duration = end_time - start_time
+            duration_str = \
+                f"{int(duration // 60)}m {int(duration % 60)}s" \
+                if duration > 60 else f"{duration:.2f} seconds"
+
+            if status['success']:
+                log_function(f"{message} DONE ({duration_str})")
+            else:
+                log_function(f"{message} FAILED ({duration_str})")
+
+            if log_format:
+                self.logger.handlers[0].setFormatter(original_formatter)
+
+
+if __name__ == '__main__':
+    logger = Logger(log_level='INFO', log_format='minimal')
+
+    try:
+        with logger.log_timing("Outer block"):
+            with logger.log_timing("Inner block"):
+                raise RuntimeError("Simulated failure")
+
+    except RuntimeError as e:
+        logger.error(f"Caught exception: {e}")
