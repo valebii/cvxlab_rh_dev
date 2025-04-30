@@ -91,7 +91,7 @@ class Model:
             use_existing_data: bool = False,
             multiple_input_files: bool = False,
             log_level: Literal['info', 'debug', 'warning', 'error'] = 'info',
-            log_format: Literal['standard', 'minimal'] = 'minimal',
+            log_format: Literal['standard', 'detailed'] = 'standard',
             detailed_validation: bool = False,
     ) -> None:
 
@@ -104,46 +104,46 @@ class Model:
             log_format=log_format,
         )
 
-        self.logger.info(
-            f"Generating '{model_dir_name}' model instance.")
-        
-        self.files = FileManager(logger=self.logger)
+        with self.logger.log_timing(
+            message=f"Model instance generation...",
+            level='info',
+        ):
 
-        self.settings = DotDict({
-            'log_level': log_level,
-            'model_name': model_dir_name,
-            'model_settings_from': model_settings_from,
-            'use_existing_data': use_existing_data,
-            'multiple_input_files': multiple_input_files,
-            'detailed_validation': detailed_validation,
-            'sets_xlsx_file': config.SETS_FILE,
-            'input_data_dir': config.INPUT_DATA_DIR,
-            'input_data_file': config.INPUT_DATA_FILE,
-            'sqlite_database_file': config.SQLITE_DATABASE_FILE,
-            'sqlite_database_file_test': config.SQLITE_DATABASE_FILE_TEST,
-        })
+            self.files = FileManager(logger=self.logger)
 
-        self.paths = DotDict({
-            'model_dir': model_dir_path,
-            'input_data_dir': model_dir_path / config.INPUT_DATA_DIR,
-            'sets_excel_file': model_dir_path / config.SETS_FILE,
-            'sqlite_database': model_dir_path / config.SQLITE_DATABASE_FILE,
-        })
+            self.settings = DotDict({
+                'log_level': log_level,
+                'model_name': model_dir_name,
+                'model_settings_from': model_settings_from,
+                'use_existing_data': use_existing_data,
+                'multiple_input_files': multiple_input_files,
+                'detailed_validation': detailed_validation,
+                'sets_xlsx_file': config.SETS_FILE,
+                'input_data_dir': config.INPUT_DATA_DIR,
+                'input_data_file': config.INPUT_DATA_FILE,
+                'sqlite_database_file': config.SQLITE_DATABASE_FILE,
+                'sqlite_database_file_test': config.SQLITE_DATABASE_FILE_TEST,
+            })
 
-        self.check_model_dir()
+            self.paths = DotDict({
+                'model_dir': model_dir_path,
+                'input_data_dir': model_dir_path / config.INPUT_DATA_DIR,
+                'sets_excel_file': model_dir_path / config.SETS_FILE,
+                'sqlite_database': model_dir_path / config.SQLITE_DATABASE_FILE,
+            })
 
-        self.core = Core(
-            logger=self.logger,
-            files=self.files,
-            settings=self.settings,
-            paths=self.paths,
-        )
+            self.check_model_dir()
 
-        if self.settings['use_existing_data']:
-            self.load_model_coordinates()
-            self.initialize_problems()
+            self.core = Core(
+                logger=self.logger,
+                files=self.files,
+                settings=self.settings,
+                paths=self.paths,
+            )
 
-        self.logger.info(f"Model '{model_dir_name}' successfully generated.")
+            if self.settings['use_existing_data']:
+                self.load_model_coordinates()
+                self.initialize_problems()
 
     @property
     def sets(self) -> List[str]:
@@ -234,7 +234,8 @@ class Model:
         ):
             if not self.settings['use_existing_data']:
                 self.logger.warning(
-                    f"Model directory and setup '{files_type}' file/s exist.")
+                    f"Model directory and setup '{files_type}' file/s already "
+                    "exist.")
         else:
             msg = f"Model directory or setup '{files_type}' file/s missing."
             self.logger.error(msg)
@@ -259,29 +260,30 @@ class Model:
         Return:
             None
         """
-        self.logger.info(
-            'Generating model Index (sets data and variable coordinates).')
+        with self.logger.log_timing(
+            message=f"Loading sets and variables coordinates...",
+            level='info',
+        ):
+            try:
+                sets_xlsx_file = Constants.ConfigFiles.SETS_FILE
+                self.core.index.load_sets_data_to_index(
+                    excel_file_name=sets_xlsx_file,
+                    excel_file_dir_path=self.paths['model_dir']
+                )
+            except FileNotFoundError as e:
+                msg = f"'{sets_xlsx_file}' file missing. Set 'use_existing_data' " \
+                    "to False to generate a new settings file."
+                self.logger.error(msg)
+                raise exc.SettingsError(msg) from e
 
-        try:
-            sets_xlsx_file = Constants.ConfigFiles.SETS_FILE
-            self.core.index.load_sets_data_to_index(
-                excel_file_name=sets_xlsx_file,
-                excel_file_dir_path=self.paths['model_dir']
-            )
-        except FileNotFoundError as e:
-            msg = f"'{sets_xlsx_file}' file missing. Set 'use_existing_data' " \
-                "to False to generate a new settings file."
-            self.logger.error(msg)
-            raise exc.SettingsError(msg) from e
+            self.core.index.load_coordinates_to_data_index()
+            self.core.index.load_all_coordinates_to_variables_index()
+            self.core.index.filter_coordinates_in_variables_index()
+            self.core.index.check_variables_coherence()
+            self.core.index.fetch_scenarios_info()
 
-        self.core.index.load_coordinates_to_data_index()
-        self.core.index.load_all_coordinates_to_variables_index()
-        self.core.index.filter_coordinates_in_variables_index()
-        self.core.index.check_variables_coherence()
-        self.core.index.fetch_scenarios_info()
-
-        if fetch_foreign_keys:
-            self.core.index.fetch_foreign_keys_to_data_tables()
+            if fetch_foreign_keys:
+                self.core.index.fetch_foreign_keys_to_data_tables()
 
     def initialize_blank_data_structure(self) -> None:
         """
@@ -308,48 +310,48 @@ class Model:
                 "Relying on existing SQLite database and input excel file/s.")
             return
 
-        if sqlite_db_path.exists():
-            self.logger.info(f"Database '{sqlite_db_name}' already exists.")
+        with self.logger.log_timing(
+            message=f"Generation of blank data structures...",
+            level='info',
+        ):
+            if sqlite_db_path.exists():
+                erased_db = self.files.erase_file(
+                    dir_path=self.paths['model_dir'],
+                    file_name=sqlite_db_name,
+                    force_erase=False,
+                    confirm=True,
+                )
 
-            erased_db = self.files.erase_file(
-                dir_path=self.paths['model_dir'],
-                file_name=sqlite_db_name,
-                force_erase=False,
-                confirm=True,
-            )
+            if erased_db:
+                self.logger.info(
+                    f"Existing SQLite database '{sqlite_db_name}' erased.")
 
-        if erased_db:
-            self.logger.info(
-                f"Existing SQLite database '{sqlite_db_name}' erased.")
+            if erased_db or not sqlite_db_path.exists():
+                self.logger.info(
+                    f"Creating new blank SQLite database '{sqlite_db_name}'.")
+                self.core.database.create_blank_sqlite_database()
+                self.core.database.load_sets_to_sqlite_database()
+                self.core.database.generate_blank_sqlite_data_tables()
+                self.core.database.sets_data_to_sql_data_tables()
+            else:
+                self.logger.info(
+                    f"Relying on existing SQLite database '{sqlite_db_name}' ")
 
-        if erased_db or not sqlite_db_path.exists():
-            self.logger.info(
-                f"Creating new blank SQLite database '{sqlite_db_name}'.")
-            self.core.database.create_blank_sqlite_database()
-            self.core.database.load_sets_to_sqlite_database()
-            self.core.database.generate_blank_sqlite_data_tables()
-            self.core.database.sets_data_to_sql_data_tables()
-        else:
-            self.logger.info(
-                f"Relying on existing SQLite database '{sqlite_db_name}' ")
+            if input_files_dir_path.exists():
+                erased_input_dir = self.files.erase_dir(
+                    dir_path=input_files_dir_path,
+                    force_erase=False,
+                )
 
-        if input_files_dir_path.exists():
-            self.logger.info("Input data directory already exists.")
+                if erased_input_dir:
+                    self.logger.info("Existing input data directory erased.")
 
-            erased_input_dir = self.files.erase_dir(
-                dir_path=input_files_dir_path,
-                force_erase=False,
-            )
-
-            if erased_input_dir:
-                self.logger.info("Existing input data directory erased.")
-
-        if erased_input_dir or not input_files_dir_path.exists():
-            self.logger.info(
-                "Generating new blank input data directory and related file/s.")
-            self.core.database.generate_blank_data_input_files()
-        else:
-            self.logger.info("Relying on existing input data directory.")
+            if erased_input_dir or not input_files_dir_path.exists():
+                self.logger.info(
+                    "Generating new blank input data directory and related file/s.")
+                self.core.database.generate_blank_data_input_files()
+            else:
+                self.logger.info("Relying on existing input data directory.")
 
     def generate_input_data_files(
             self,
@@ -376,12 +378,15 @@ class Model:
             raise exc.SettingsError(msg)
 
         if table_key_list != []:
-            self.logger.info(
-                f"Generating input data files for tables: '{table_key_list}'.")
+            msg = f"Generating input data files for tables: '{table_key_list}'..."
         else:
-            self.logger.info("Generating all input data files.")
+            msg = "Generating all input data files..."
 
-        self.core.database.generate_blank_data_input_files(table_key_list)
+        with self.logger.log_timing(
+            message=msg,
+            level='info',
+        ):
+            self.core.database.generate_blank_data_input_files(table_key_list)
 
     def load_exogenous_data_to_sqlite_database(
             self,
@@ -395,17 +400,19 @@ class Model:
             force_overwrite (bool, optional): Whether to force overwrite existing 
                 data without asking for user permission. Defaults to False.
         """
-        self.logger.info('Loading input data to SQLite database.')
+        with self.logger.log_timing(
+            message=f"Loading input data to SQLite database...",
+            level='info',
+        ):
+            self.core.database.load_data_input_files_to_database(
+                force_overwrite=force_overwrite,
+                table_key_list=table_key_list,
+            )
 
-        self.core.database.load_data_input_files_to_database(
-            force_overwrite=force_overwrite,
-            table_key_list=table_key_list,
-        )
-
-        self.core.database.fill_nan_values_in_database(
-            force_overwrite=force_overwrite,
-            table_key_list=table_key_list,
-        )
+            self.core.database.fill_nan_values_in_database(
+                force_overwrite=force_overwrite,
+                table_key_list=table_key_list,
+            )
 
     def initialize_problems(
             self,
@@ -427,11 +434,14 @@ class Model:
         Return:
             None
         """
-        self.logger.info("Numerical problem generation.")
-
-        self.core.load_and_validate_symbolic_problem(force_overwrite)
-        self.core.generate_numerical_problem(
-            allow_none_values, force_overwrite)
+        with self.logger.log_timing(
+            message=f"Numerical model generation...",
+            level='info',
+        ):
+            self.core.load_and_validate_symbolic_problem(force_overwrite)
+            self.core.check_exogenous_data_coherence()
+            self.core.generate_numerical_problem(
+                allow_none_values, force_overwrite)
 
     def run_model(
         self,
@@ -497,32 +507,39 @@ class Model:
             raise exc.SettingsError(msg)
 
         if integrated_problems and sub_problems > 1:
-            problem_type = 'integrated'
+            solution_type = 'integrated'
         else:
-            problem_type = 'independent'
+            solution_type = 'independent'
 
         problem_count = '1' if sub_problems == 1 else f'{sub_problems}'
 
         self.logger.info(
-            f"Solving '{problem_count}' {problem_type} numerical problem(s) "
-            f"for '{problem_scenarios}' scenarios with '{solver}' solver.")
+            f"Model run summary: "
+            f"\n\tNumber of problems: {problem_count} "
+            f"\n\tSolution mode: '{solution_type}' "
+            f"\n\tScenarios number: {problem_scenarios} "
+            f"\n\tSolver: '{solver}'\n")
 
         if verbose:
             self.logger.info("="*30)
             self.logger.info("cvxpy logs below.")
 
-        self.core.solve_numerical_problems(
-            solver=solver,
-            solver_verbose=verbose,
-            iterations_log=iterations_log,
-            force_overwrite=force_overwrite,
-            integrated_problems=integrated_problems,
-            numerical_tolerance=numerical_tolerance,
-            maximum_iterations=maximum_iterations,
-            canon_backend=cp.SCIPY_CANON_BACKEND,
-            ignore_dpp=True,
-            **kwargs,
-        )
+        with self.logger.log_timing(
+            message=f"Solving numerical problems...",
+            level='info',
+        ):
+            self.core.solve_numerical_problems(
+                solver=solver,
+                solver_verbose=verbose,
+                iterations_log=iterations_log,
+                force_overwrite=force_overwrite,
+                integrated_problems=integrated_problems,
+                numerical_tolerance=numerical_tolerance,
+                maximum_iterations=maximum_iterations,
+                canon_backend=cp.SCIPY_CANON_BACKEND,
+                ignore_dpp=True,
+                **kwargs,
+            )
 
         self.logger.info("="*30)
         self.logger.info("Numerical problems status report:")
@@ -547,19 +564,21 @@ class Model:
         Returns:
             None
         """
-        self.logger.info(
-            'Exporting endogenous model results to SQLite database.')
 
-        if not self.is_problem_solved:
-            msg = 'Numerical problem has not solved yet and results cannot be ' \
-                'exported.'
-            self.logger.warning(msg)
-        else:
-            self.core.cvxpy_endogenous_data_to_database(
-                scenarios_idx=scenarios_idx,
-                force_overwrite=force_overwrite,
-                suppress_warnings=suppress_warnings
-            )
+        with self.logger.log_timing(
+            message=f"Exporting endogenous model results to SQLite database...",
+            level='info',
+        ):
+            if not self.is_problem_solved:
+                self.logger.warning(
+                    "Numerical problem has not solved yet and results "
+                    "cannot be exported.")
+            else:
+                self.core.cvxpy_endogenous_data_to_database(
+                    scenarios_idx=scenarios_idx,
+                    force_overwrite=force_overwrite,
+                    suppress_warnings=suppress_warnings
+                )
 
     def update_database_and_problem(
             self,
