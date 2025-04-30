@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 import cvxpy as cp
 
+from cvxlab import constants
 from cvxlab.backend.data_table import DataTable
 from cvxlab.backend.database import Database
 from cvxlab.backend.index import Index, Variable
@@ -154,139 +155,141 @@ class Core:
             The DataFrames for exogenous and endogenous variables are generated
                 using the 'generate_vars_dataframe' method of the Problem instance.
         """
-        self.logger.info(
-            "Generating data structures for endogenous data tables.")
+        with self.logger.log_timing(
+            message=f"Generating data structures for endogenous data tables...",
+            level='info',
+        ):
+            # generate dataframes and cvxpy var for endogenous data tables
+            # and for variables whth type defined by problem linking logic
+            for data_table_key, data_table in self.index.data.items():
+                data_table: DataTable
 
-        # generate dataframes and cvxpy var for endogenous data tables
-        # and for variables whth type defined by problem linking logic
-        for data_table_key, data_table in self.index.data.items():
-            data_table: DataTable
+                if data_table.type == 'endogenous' or \
+                        isinstance(data_table.type, dict):
 
-            if data_table.type == 'endogenous' or \
-                    isinstance(data_table.type, dict):
+                    self.logger.debug(
+                        f"Data table '{data_table_key}' | type: {data_table.type} | "
+                        "Generating dataframe and cvxpy variable.")
 
-                self.logger.debug(
-                    f"Data table '{data_table_key}' | type: {data_table.type} | "
-                    "Generating dataframe and cvxpy variable.")
+                    # get all coordinates for the data table based on sets
+                    data_table.generate_coordinates_dataframes(
+                        sets_split_problems=self.index.sets_split_problem_dict
+                    )
 
-                # get all coordinates for the data table based on sets
-                data_table.generate_coordinates_dataframes(
-                    sets_split_problems=self.index.sets_split_problem_dict
-                )
+                    # data table coordinates dataframe are filtered to keep only
+                    # coordinates defined by the variables whithin the data table
+                    coordinates_df_filtered = pd.DataFrame()
+                    for var_key, variable in self.index.variables.items():
+                        if var_key in data_table.variables_list:
+                            var_coords_df = util.unpivot_dict_to_dataframe(
+                                data_dict=variable.all_coordinates_w_headers
+                            )
+                            coordinates_df_filtered = pd.concat(
+                                objs=[coordinates_df_filtered, var_coords_df],
+                                ignore_index=True
+                            )
 
-                # data table coordinates dataframe are filtered to keep only 
-                # coordinates defined by the variables whithin the data table
-                coordinates_df_filtered = pd.DataFrame()
-                for var_key, variable in self.index.variables.items():
-                    if var_key in data_table.variables_list:
-                        var_coords_df = util.unpivot_dict_to_dataframe(
-                            data_dict=variable.all_coordinates_w_headers
-                        )
-                        coordinates_df_filtered = pd.concat(
-                            objs=[coordinates_df_filtered, var_coords_df],
-                            ignore_index=True
-                        )
-                
-                coordinates_df_filtered = coordinates_df_filtered.drop_duplicates()
+                    coordinates_df_filtered = coordinates_df_filtered.drop_duplicates()
 
-                if isinstance(data_table.coordinates_dataframe, pd.DataFrame):
-                    data_table.coordinates_dataframe = \
-                        data_table.coordinates_dataframe.merge(
-                            right=coordinates_df_filtered,
-                            on=list(coordinates_df_filtered.columns),
-                            how='inner'
-                        )
-
-                elif isinstance(data_table.coordinates_dataframe, dict):
-                    for problem_key, coord_df in \
-                            data_table.coordinates_dataframe.items():
-                                                    
-                        data_table.coordinates_dataframe[problem_key] = \
-                            coord_df.merge(
+                    if isinstance(data_table.coordinates_dataframe, pd.DataFrame):
+                        data_table.coordinates_dataframe = \
+                            data_table.coordinates_dataframe.merge(
                                 right=coordinates_df_filtered,
                                 on=list(coordinates_df_filtered.columns),
                                 how='inner'
                             )
 
-                # generate cvxpy variables associated with data tables
-                if isinstance(data_table.coordinates_dataframe, pd.DataFrame):
-                    cvxpy_var = self.problem.create_cvxpy_variable(
-                        var_type='endogenous',
-                        integer=data_table.integer,
-                        shape=(data_table.table_length, 1),
-                        name=data_table_key,
-                    )
+                    elif isinstance(data_table.coordinates_dataframe, dict):
+                        for problem_key, coord_df in \
+                                data_table.coordinates_dataframe.items():
 
-                # in case of problem with sets split, multiple endogenous variables
-                # are created and stored in a dictionary.
-                elif isinstance(data_table.coordinates_dataframe, dict):
-                    cvxpy_var = {}
+                            data_table.coordinates_dataframe[problem_key] = \
+                                coord_df.merge(
+                                    right=coordinates_df_filtered,
+                                    on=list(coordinates_df_filtered.columns),
+                                    how='inner'
+                            )
 
-                    for problem_key, coord_df in data_table.coordinates_dataframe.items():
-                        cvxpy_var[problem_key] = self.problem.create_cvxpy_variable(
+                    # generate cvxpy variables associated with data tables
+                    if isinstance(data_table.coordinates_dataframe, pd.DataFrame):
+                        cvxpy_var = self.problem.create_cvxpy_variable(
                             var_type='endogenous',
                             integer=data_table.integer,
-                            shape=(len(coord_df), 1),
-                            name=f"{data_table_key}_{problem_key}",
+                            shape=(data_table.table_length, 1),
+                            name=data_table_key,
                         )
 
-                data_table.cvxpy_var = cvxpy_var
+                    # in case of problem with sets split, multiple endogenous variables
+                    # are created and stored in a dictionary.
+                    elif isinstance(data_table.coordinates_dataframe, dict):
+                        cvxpy_var = {}
+
+                        for problem_key, coord_df in data_table.coordinates_dataframe.items():
+                            cvxpy_var[problem_key] = self.problem.create_cvxpy_variable(
+                                var_type='endogenous',
+                                integer=data_table.integer,
+                                shape=(len(coord_df), 1),
+                                name=f"{data_table_key}_{problem_key}",
+                            )
+
+                    data_table.cvxpy_var = cvxpy_var
 
         # generating variables dataframes with cvxpy var and filters dictionary
         # (endogenous vars will be sliced from existing cvxpy var in data table)
-        self.logger.info(
-            "Generating data structures for all variables and constants.")
+        with self.logger.log_timing(
+            message=f"Generating data structures for all variables and constants...",
+            level='info',
+        ):
+            for var_key, variable in self.index.variables.items():
+                variable: Variable
 
-        for var_key, variable in self.index.variables.items():
-            variable: Variable
+                # for constants, values are directly generated (no dataframes needed)
+                if variable.type == 'constant':
 
-            # for constants, values are directly generated (no dataframes needed)
-            if variable.type == 'constant':
+                    self.logger.debug(
+                        f"Variable '{var_key}' | type: {variable.type} | Constant "
+                        f"value '{variable.value}'.")
 
-                self.logger.debug(
-                    f"Variable '{var_key}' | type: {variable.type} | Constant "
-                    f"value '{variable.value}'.")
-
-                variable.data = self.problem.generate_constant_data(
-                    variable_name=var_key,
-                    variable=variable
-                )
-
-            # for variables whose type is univocally defined, only one data structure
-            # is generated and stored in variable.data
-            elif variable.type in ['exogenous', 'endogenous']:
-
-                self.logger.debug(
-                    f"Variable '{var_key}' | type: {variable.type} | Generating "
-                    "data structure.")
-
-                variable.data = self.problem.generate_vars_dataframe(
-                    variable_name=var_key,
-                    variable=variable
-                )
-
-            # for variable whose type varies depending on the problem, both
-            # endogenous/exogenous variable dataframes are stored in
-            # variable.data defined as a dictionary
-            elif isinstance(variable.type, dict):
-                variable.data = {}
-
-                self.logger.debug(
-                    f"Variable '{var_key}' | type: {variable.type} | Generating "
-                    "data structure.")
-
-                for problem_key, problem_var_type in variable.type.items():
-                    variable.data[problem_key] = self.problem.generate_vars_dataframe(
+                    variable.data = self.problem.generate_constant_data(
                         variable_name=var_key,
-                        variable=variable,
-                        variable_type=problem_var_type,
+                        variable=variable
                     )
 
-            else:
-                msg = f"Variable type '{variable.type}' not allowed. Available " \
-                    f"types: {Constants.SymbolicDefinitions.ALLOWED_VARIABLES_TYPES}"
-                self.logger.error(msg)
-                raise exc.SettingsError(msg)
+                # for variables whose type is univocally defined, only one data structure
+                # is generated and stored in variable.data
+                elif variable.type in ['exogenous', 'endogenous']:
+
+                    self.logger.debug(
+                        f"Variable '{var_key}' | type: {variable.type} | Generating "
+                        "data structure.")
+
+                    variable.data = self.problem.generate_vars_dataframe(
+                        variable_name=var_key,
+                        variable=variable
+                    )
+
+                # for variable whose type varies depending on the problem, both
+                # endogenous/exogenous variable dataframes are stored in
+                # variable.data defined as a dictionary
+                elif isinstance(variable.type, dict):
+                    variable.data = {}
+
+                    self.logger.debug(
+                        f"Variable '{var_key}' | type: {variable.type} | Generating "
+                        "data structure.")
+
+                    for problem_key, problem_var_type in variable.type.items():
+                        variable.data[problem_key] = self.problem.generate_vars_dataframe(
+                            variable_name=var_key,
+                            variable=variable,
+                            variable_type=problem_var_type,
+                        )
+
+                else:
+                    msg = f"Variable type '{variable.type}' not allowed. Available " \
+                        f"types: {Constants.SymbolicDefinitions.ALLOWED_VARIABLES_TYPES}"
+                    self.logger.error(msg)
+                    raise exc.SettingsError(msg)
 
     def data_to_cvxpy_exogenous_vars(
             self,
@@ -322,148 +325,153 @@ class Core:
             The data is assigned to the cvxpy variable using the 'data_to_cvxpy_variable'
                 method of the Problem instance.
         """
-        self.logger.info(
-            f"Fetching data from '{self.settings['sqlite_database_file']}' "
-            "to cvxpy exogenous variables.")
 
-        filter_header = Constants.Labels.FILTER_DICT_KEY
-        cvxpy_var_header = Constants.Labels.CVXPY_VAR
-        values_header = Constants.Labels.VALUES_FIELD['values'][0]
-        id_header = Constants.Labels.ID_FIELD['id'][0]
-        allowed_values_types = Constants.NumericalSettings.ALLOWED_VALUES_TYPES
+        with self.logger.log_timing(
+            message=f"Fetching data from '{self.settings['sqlite_database_file']}' "
+                "to cvxpy exogenous variables...",
+            level='info',
+        ):
+            filter_header = Constants.Labels.FILTER_DICT_KEY
+            cvxpy_var_header = Constants.Labels.CVXPY_VAR
+            values_header = Constants.Labels.VALUES_FIELD['values'][0]
+            id_header = Constants.Labels.ID_FIELD['id'][0]
+            allowed_values_types = Constants.NumericalSettings.ALLOWED_VALUES_TYPES
 
-        if not isinstance(var_list_to_update, list):
-            msg = "Passed item is not a list."
-            self.logger.error(msg)
-            raise TypeError(msg)
+            if not isinstance(var_list_to_update, list):
+                msg = "Passed item is not a list."
+                self.logger.error(msg)
+                raise TypeError(msg)
 
-        if not var_list_to_update == [] and \
-                not util.items_in_list(var_list_to_update, self.index.variables.keys()):
-            msg = "One or more passed items are not in the index variables."
-            self.logger.error(msg)
-            raise exc.SettingsError(msg)
+            if not var_list_to_update == [] and \
+                    not util.items_in_list(var_list_to_update, self.index.variables.keys()):
+                msg = "One or more passed items are not in the index variables."
+                self.logger.error(msg)
+                raise exc.SettingsError(msg)
 
-        if var_list_to_update == []:
-            var_list_to_update = self.index.list_variables
+            if var_list_to_update == []:
+                var_list_to_update = self.index.list_variables
 
-        with db_handler(self.sqltools):
-            for var_key, variable in self.index.variables.items():
-                variable: Variable
+            with db_handler(self.sqltools):
+                for var_key, variable in self.index.variables.items():
+                    variable: Variable
 
-                if var_key not in var_list_to_update:
-                    continue
+                    if var_key not in var_list_to_update:
+                        continue
 
-                if variable.type in ['endogenous', 'constant']:
-                    continue
+                    if variable.type in ['endogenous', 'constant']:
+                        continue
 
-                self.logger.debug(
-                    f"Data table '{var_key}' | Fetching data to cvxpy "
-                    "exogenous variable.")
+                    self.logger.debug(
+                        f"Fetching data to variables | Data table '{var_key}'")
 
-                err_msg = []
+                    err_msg = []
 
-                if variable.data is None:
-                    err_msg.append(
-                        f"No data defined for variable '{var_key}'.")
+                    if variable.data is None:
+                        err_msg.append(
+                            f"No data defined for variable '{var_key}'.")
 
-                if variable.related_table is None:
-                    err_msg.append(
-                        f"No related table defined for variable '{var_key}'.")
+                    if variable.related_table is None:
+                        err_msg.append(
+                            f"No related table defined for variable '{var_key}'.")
 
-                if err_msg:
-                    self.logger.error("\n".join(err_msg))
-                    raise exc.MissingDataError("\n".join(err_msg))
+                    if err_msg:
+                        self.logger.error("\n".join(err_msg))
+                        raise exc.MissingDataError("\n".join(err_msg))
 
-                # for variables whose type is end/exo depending on the problem,
-                # fetch exogenous variable data.
-                # notice that a variable may be exogenous for more than one problem.
-                if isinstance(variable.type, dict):
-                    problem_keys = util.find_dict_keys_corresponding_to_value(
-                        variable.type, 'exogenous')
-                else:
-                    problem_keys = [None]
-
-                for problem_key in problem_keys:
-
-                    if problem_key is not None:
-                        variable_data = variable.data[problem_key]
+                    # for variables whose type is end/exo depending on the problem,
+                    # fetch exogenous variable data.
+                    # notice that a variable may be exogenous for more than one problem.
+                    if isinstance(variable.type, dict):
+                        problem_keys = util.find_dict_keys_corresponding_to_value(
+                            variable.type, 'exogenous')
                     else:
-                        variable_data = variable.data
+                        problem_keys = [None]
 
-                    # case when all values of variables need to be fetched
-                    if scenarios_idx is None:
-                        sets_parsing_hierarchy_idx = list(variable_data.index)
+                    for problem_key in problem_keys:
 
-                    # case when values of variables need to be fetched for a
-                    # sub-set of inter-problem sets defined by scenarios_idx
-                    # (typically when solving integrated problems)
-                    else:
-                        if isinstance(scenarios_idx, int):
-                            scenarios_idx = [scenarios_idx]
-
-                        # case of variable not defined for any inter-problem sets
-                        if not variable.coordinates['inter']:
-                            sets_parsing_hierarchy_idx = \
-                                list(variable_data.index)
-
-                        # case of variable defined for one or more inter-problem sets
-                        # find the index of variable_data that matches the combination
-                        # of inter-problem-sets defined by scenarios_idx
+                        if problem_key is not None:
+                            variable_data = variable.data[problem_key]
                         else:
-                            info_label = Constants.Labels.SCENARIO_COORDINATES
-                            scenarios_to_fetch = \
-                                self.index.scenarios_info.loc[scenarios_idx].drop(
-                                    columns=[info_label]
-                                )
+                            variable_data = variable.data
 
-                            var_inter_set_headers = list(
-                                variable.coordinates_info['inter'].values())
+                        # case when all values of variables need to be fetched
+                        if scenarios_idx is None:
+                            sets_parsing_hierarchy_idx = list(
+                                variable_data.index)
 
-                            variable_data = variable_data.reset_index()
+                        # case when values of variables need to be fetched for a
+                        # sub-set of inter-problem sets defined by scenarios_idx
+                        # (typically when solving integrated problems)
+                        else:
+                            if isinstance(scenarios_idx, int):
+                                scenarios_idx = [scenarios_idx]
 
-                            variable_data_filtered = variable_data.merge(
-                                right=scenarios_to_fetch,
-                                on=var_inter_set_headers,
-                                how='inner'
-                            ).set_index('index')
+                            # case of variable not defined for any inter-problem sets
+                            if not variable.coordinates['inter']:
+                                sets_parsing_hierarchy_idx = \
+                                    list(variable_data.index)
 
-                            sets_parsing_hierarchy_idx = \
-                                list(variable_data_filtered.index)
+                            # case of variable defined for one or more inter-problem sets
+                            # find the index of variable_data that matches the combination
+                            # of inter-problem-sets defined by scenarios_idx
+                            else:
+                                info_label = Constants.Labels.SCENARIO_COORDINATES
+                                scenarios_to_fetch = \
+                                    self.index.scenarios_info.loc[scenarios_idx].drop(
+                                        columns=[info_label]
+                                    )
 
-                    for combination in sets_parsing_hierarchy_idx:
-                        # get raw data from database
-                        raw_data = self.database.sqltools.table_to_dataframe(
-                            table_name=variable.related_table,
-                            filters_dict=variable_data[filter_header][combination]
-                        )
+                                var_inter_set_headers = list(
+                                    variable.coordinates_info['inter'].values())
 
-                        # check if variable data are int or float
-                        non_allowed_ids = util.find_non_allowed_types(
-                            dataframe=raw_data,
-                            allowed_types=allowed_values_types,
-                            target_col_header=values_header,
-                            return_col_header=id_header,
-                            allow_none=allow_none_values,
-                        )
+                                variable_data = variable_data.reset_index()
 
-                        if non_allowed_ids:
-                            msg = f"Data for variable '{var_key}' in table " \
-                                f"'{variable.related_table}' contains " \
-                                f"non-allowed values types in rows: " \
-                                f"{non_allowed_ids}."
-                            self.logger.error(msg)
-                            raise exc.MissingDataError(msg)
+                                variable_data_filtered = variable_data.merge(
+                                    right=scenarios_to_fetch,
+                                    on=var_inter_set_headers,
+                                    how='inner'
+                                ).set_index('index')
 
-                        # pivoting and reshaping data to fit variables
-                        pivoted_data = variable.reshaping_sqlite_table_data(
-                            data=raw_data,
-                        )
+                                sets_parsing_hierarchy_idx = \
+                                    list(variable_data_filtered.index)
 
-                        self.problem.data_to_cvxpy_variable(
-                            var_key=var_key,
-                            cvxpy_var=variable_data[cvxpy_var_header][combination],
-                            data=pivoted_data
-                        )
+                        for combination in sets_parsing_hierarchy_idx:
+                            # get raw data from database
+                            raw_data = self.database.sqltools.table_to_dataframe(
+                                table_name=variable.related_table,
+                                filters_dict=variable_data[filter_header][combination]
+                            )
+
+                            # check if variable data are int or float
+                            non_allowed_ids = util.find_non_allowed_types(
+                                dataframe=raw_data,
+                                allowed_types=allowed_values_types,
+                                target_col_header=values_header,
+                                return_col_header=id_header,
+                                allow_none=allow_none_values,
+                            )
+
+                            if non_allowed_ids:
+                                if len(non_allowed_ids) > 5:
+                                    non_allowed_ids = non_allowed_ids[:5] + \
+                                        [f"(total items {len(non_allowed_ids)})"]
+                                msg = f"Data for variable '{var_key}' in table " \
+                                    f"'{variable.related_table}' contains " \
+                                    f"non-allowed values types in rows: " \
+                                    f"{non_allowed_ids}."
+                                self.logger.error(msg)
+                                raise exc.MissingDataError(msg)
+
+                            # pivoting and reshaping data to fit variables
+                            pivoted_data = variable.reshaping_sqlite_table_data(
+                                data=raw_data,
+                            )
+
+                            self.problem.data_to_cvxpy_variable(
+                                var_key=var_key,
+                                cvxpy_var=variable_data[cvxpy_var_header][combination],
+                                data=pivoted_data
+                            )
 
     def cvxpy_endogenous_data_to_database(
             self,
@@ -520,10 +528,6 @@ class Core:
                 if data_table.type in ['exogenous', 'constant']:
                     continue
 
-                self.logger.debug(
-                    "Exporting data from cvxpy variable to the related "
-                    f"data table '{data_table_key}'. ")
-
                 if isinstance(data_table.coordinates_dataframe, pd.DataFrame):
                     data_table_dataframe = data_table.coordinates_dataframe
 
@@ -577,15 +581,63 @@ class Core:
                     suppress_warnings=suppress_warnings,
                 )
 
+    def check_exogenous_data_coherence(self) -> None:
+        """
+        Parses all data tables in the database and checks for NULL entries in the
+        'values' column. If NULL entries are found, logs the table name and the
+        corresponding row IDs, and raises an error.
+
+        Raises:
+            exc.MissingDataError: If NULL entries are found in any data table.
+        """
+        with self.logger.log_timing(
+            message=f"Checking exogenous data coherence...",
+            level='info',
+        ):
+            null_entries = {}
+            column_to_inspect = Constants.Labels.VALUES_FIELD['values'][0]
+            column_with_info = Constants.Labels.ID_FIELD['id'][0]
+
+            with db_handler(self.sqltools):
+                for table_name, data_table in self.index.data.items():
+                    data_table: DataTable
+
+                    if data_table.type in ('endogenous', 'constant'):
+                        continue
+
+                    null_list = self.sqltools.get_null_values(
+                        table_name=table_name,
+                        column_to_inspect=column_to_inspect,
+                        column_with_info=column_with_info,
+                    )
+
+                    if null_list:
+                        null_entries[table_name] = null_list
+
+            if null_entries:
+                for table, rows in null_entries.items():
+                    if len(rows) > 5:
+                        rows = rows[:5] + [f"(total items {len(rows)})"]
+                    self.logger.error(
+                        f"Data coherence check | Table '{table}' | "
+                        f"NULLs at id rows: {rows}."
+                    )
+                raise exc.MissingDataError(
+                    "Data coherence check | NULL entries found in "
+                    f"data tables: {list(null_entries.keys())}"
+                )
+
     def load_and_validate_symbolic_problem(
             self,
             force_overwrite: bool = False,
     ) -> None:
 
-        self.logger.debug("Loading and validating symbolic problem.")
-
-        self.problem.load_symbolic_problem_from_file(force_overwrite)
-        self.problem.check_symbolic_problem_coherence()
+        with self.logger.log_timing(
+            message=f"Loading and validating symbolic problem...",
+            level='info',
+        ):
+            self.problem.load_symbolic_problem_from_file(force_overwrite)
+            self.problem.check_symbolic_problem_coherence()
 
     def generate_numerical_problem(
             self,
@@ -615,8 +667,6 @@ class Core:
         """
         self.initialize_problems_variables()
         self.data_to_cvxpy_exogenous_vars(allow_none_values=allow_none_values)
-
-        self.logger.info("Generating cvxpy numerical problem/s.")
         self.problem.generate_numerical_problems(force_overwrite)
 
     def solve_numerical_problems(
@@ -681,12 +731,8 @@ class Core:
                 user_input = input("Solve again numeric problems? (y/[n]): ")
 
                 if user_input.lower() != 'y':
-                    self.logger.info("Numeric problem NOT solved.")
+                    self.logger.warning("Numeric problem NOT solved.")
                     return
-
-            self.logger.info(
-                "Solving numeric problem and overwriting existing "
-                "variables numerical values.")
 
         if integrated_problems:
             self.solve_integrated_problems(
@@ -925,7 +971,7 @@ class Core:
 
                         for sub_problem, problem_df \
                                 in self.problem.numerical_problems.items():
-                            
+
                             self.problem.solve_problem_dataframe(
                                 problem_name=sub_problem,
                                 problem_dataframe=problem_df,
@@ -951,7 +997,7 @@ class Core:
                                 f"{scenario_coords}."
                             )
                             break
-                            
+
                         self.logger.info(
                             "Problems solved successfully. Exporting data to "
                             "SQLite database.")
