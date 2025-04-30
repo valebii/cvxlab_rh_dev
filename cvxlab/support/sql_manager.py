@@ -490,8 +490,6 @@ class SQLManager:
                 query += f" DEFAULT {default_value}"
 
             self.execute_query(query, commit=commit)
-            self.logger.debug(
-                f"SQLite table '{table_name}' - column '{column_name}' added.")
 
         except sqlite3.Error as error:
             msg = f"Error adding column to table: {error}"
@@ -678,25 +676,34 @@ class SQLManager:
         id_field = Constants.Labels.ID_FIELD['id'][0]
         values_field = Constants.Labels.VALUES_FIELD['values'][0]
         table_existing_entries = self.count_table_data_entries(table_name)
-        dataframe_existing = self.table_to_dataframe(table_name)
+        df_existing = self.table_to_dataframe(table_name)
 
         # check if dataframes columns are matching (except id_field)
         if not util.check_dataframe_columns_equality(
-            df_list=[dataframe, dataframe_existing],
+            df_list=[dataframe, df_existing],
             skip_columns=[id_field],
         ):
-            msg = f"Passed DataFrame and SQLite table '{table_name}' " \
-                "mismatch in column headers."
+            c_passed = [col for col in dataframe.columns if col != id_field]
+            c_existing = [
+                col for col in df_existing.columns if col != id_field]
+
+            msg = \
+                f"SQLite table '{table_name}' | " \
+                f"action '{action}' | " \
+                f"columns mismatch (passed: {c_passed}, existing: {c_existing})"
             self.logger.error(msg)
             raise exc.MissingDataError(msg)
 
         # check if table is already up to date
         if util.check_dataframes_equality(
-            df_list=[dataframe_existing, dataframe],
+            df_list=[df_existing, dataframe],
         ):
             if not suppress_warnings:
                 self.logger.warning(
-                    f"SQLite table {table_name} already up to date.")
+                    f"SQLite table '{table_name}' | "
+                    f"action '{action}' | "
+                    f"data already up to date."
+                )
             return
 
         # convert all entries to strings except for id and values field
@@ -713,7 +720,10 @@ class SQLManager:
                     force_overwrite
                 ):
                     self.logger.debug(
-                        f"SQLite table '{table_name}' - original data NOT erased.")
+                        f"SQLite table '{table_name}' | "
+                        f"action '{action}' | "
+                        f"original data NOT erased."
+                    )
                     return
 
             if id_field not in dataframe.columns:
@@ -737,13 +747,17 @@ class SQLManager:
         elif table_existing_entries > 0 or action == 'update':
 
             # case of passed dataframe has more entry then existing table
-            if len(dataframe) > len(dataframe_existing):
-                msg = "Passed dataframe length greater than existing data table."
+            if len(dataframe) > len(df_existing):
+                msg = \
+                    f"SQLite table '{table_name}' | " \
+                    f"action '{action}' | " \
+                    f"length mismatch (existing table: {len(df_existing)}, " \
+                    f"passed data: {len(dataframe)})"
                 self.logger.error(msg)
                 raise exc.OperationalError(msg)
 
             coordinates_cols = [
-                column for column in dataframe_existing.columns
+                column for column in df_existing.columns
                 if column not in [id_field, values_field]
             ]
 
@@ -753,14 +767,14 @@ class SQLManager:
                 dataframe = dataframe.drop(columns=id_field)
 
             dataframe_with_id = dataframe.merge(
-                dataframe_existing[[id_field, *coordinates_cols]],
+                df_existing[[id_field, *coordinates_cols]],
                 on=coordinates_cols,
                 how='left',
             )
 
             # reorder columns to match table schema
-            if not all(dataframe_with_id.columns == dataframe_existing.columns):
-                dataframe_with_id = dataframe_with_id[dataframe_existing.columns]
+            if not all(dataframe_with_id.columns == df_existing.columns):
+                dataframe_with_id = dataframe_with_id[df_existing.columns]
 
             data = [tuple(row) for row in dataframe_with_id.values.tolist()]
             placeholders = ', '.join(['?'] * len(dataframe_with_id.columns))
@@ -777,12 +791,11 @@ class SQLManager:
 
         self.execute_query(query=query, params=data, many=True)
 
-        msg = f"SQLite table '{table_name}' - "
-        if action == 'update':
-            msg += f"{len(data)} entries updated."
-        elif action == 'overwrite':
-            msg += f"existing entries deleted, {len(data)} new entries added."
-        self.logger.debug(msg)
+        self.logger.debug(
+            f"SQLite table '{table_name}' | "
+            f"action '{action}' | "
+            f"entries: {len(data)}"
+        )
 
     def table_to_excel(
             self,
@@ -825,7 +838,7 @@ class SQLManager:
                 return
 
         self.logger.debug(
-            f"SQLite table '{table_name}' - exported to {excel_filename}.")
+            f"SQLite table '{table_name}' | exported to {excel_filename}.")
 
         with pd.ExcelWriter(
             path=excel_file_path,
@@ -921,6 +934,48 @@ class SQLManager:
                 f"Filtered table from '{table_name}' is empty.")
 
         return dataframe
+
+    def get_null_values(
+            self,
+            table_name: str,
+            column_to_inspect: str,
+            column_with_info: str,
+    ) -> List:
+        """
+        Retrieves rows with NULL values in a specified column and returns a list
+        of corresponding items in another column of the same table.
+
+        Args:
+            table_name (str): The name of the table to inspect.
+            column_to_inspect (str): The column to check for NULL values.
+            column_with_info (str): The column whose values will be used as keys 
+                in the result.
+
+        Returns:
+            List: A list with value from 'column_with_info'
+        """
+        self.check_table_exists(table_name)
+        table_fields = self.get_table_fields(table_name)
+
+        if column_to_inspect not in table_fields['labels']:
+            msg = f"Column '{column_to_inspect}' not found in table '{table_name}'."
+            self.logger.error(msg)
+            raise exc.OperationalError(msg)
+
+        if column_with_info not in table_fields['labels']:
+            msg = f"Column '{column_with_info}' not found in table '{table_name}'."
+            self.logger.error(msg)
+            raise exc.OperationalError(msg)
+
+        query = f"""
+            SELECT "{column_with_info}"
+            FROM {table_name}
+            WHERE "{column_to_inspect}" IS NULL
+        """
+        rows = self.execute_query(query, fetch=True)
+        if rows is None:
+            return []
+        return [row[0] for row in rows]
 
     def get_related_table_keys(
             self,
