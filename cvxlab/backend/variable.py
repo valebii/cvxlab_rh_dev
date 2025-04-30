@@ -235,7 +235,7 @@ class Variable:
         """
         if not self.coordinates_info:
             return []
-        
+
         return [
             next(iter(self.coordinates_info[dim].values()), None)
             if self.coordinates_info[dim] else None
@@ -253,7 +253,7 @@ class Variable:
         """
         if not self.coordinates:
             return []
-        
+
         return [
             list(*self.coordinates[dim].values())
             if self.coordinates[dim] else None
@@ -507,7 +507,7 @@ class Variable:
             columns_items = [
                 type(pivoted_data.columns[0])(item) for item in columns_items
             ]
-        
+
         if index_items is not None:
             index_items = [
                 type(pivoted_data.index[0])(item) for item in index_items

@@ -508,15 +508,11 @@ class FileManager:
 
             if response == 'y':
                 write_excel(excel_file_path, dict_name)
-                self.logger.warning(
-                    f"Excel file '{excel_file_name}' overwritten.")
             else:
                 self.logger.debug(
                     f"Excel file '{excel_file_name}' not overwritten.")
         else:
             write_excel(excel_file_path, dict_name)
-            self.logger.debug(
-                f"Excel file '{excel_file_name}' generated.")
 
     def dataframe_to_excel(
             self,
@@ -654,7 +650,6 @@ class FileManager:
                 self.logger.error(msg)
                 raise exc.OperationalError(msg)
 
-        self.logger.debug(f"Excel file '{excel_file_name}' loaded.")
         return df_dict
 
     def excel_tab_to_dataframe(
@@ -707,17 +702,17 @@ class FileManager:
                 raise ValueError(msg)
 
         dataframe = xlsx_file.parse(
-            sheet_name=tab_name, 
+            sheet_name=tab_name,
             keep_default_na=convert_native_types,
         )
-        
+
         # case of native types from excel
         if not convert_native_types:
             # replace empty strings with None
             dataframe.replace('', None, inplace=True)
             # replace true/True/TRUE/false/False/FALSE with bool
             dataframe.replace(
-                Constants.DefaultStructures.ALLOWED_BOOL, 
+                Constants.DefaultStructures.ALLOWED_BOOL,
                 inplace=True
             )
 

@@ -878,47 +878,52 @@ class Problem:
         Returns:
             None
         """
+        with self.logger.log_timing(
+            message=f"Generating cvxpy numerical problem/s...",
+            level='info',
+        ):
+            if self.symbolic_problem is None:
+                msg = "Symbolic problem must be loaded before generating numerical problems."
+                self.logger.error(msg)
+                raise exc.OperationalError(msg)
 
-        if self.symbolic_problem is None:
-            msg = "Symbolic problem must be loaded before generating numerical problems."
-            self.logger.error(msg)
-            raise exc.OperationalError(msg)
+            if self.numerical_problems is not None:
+                if not force_overwrite:
+                    self.logger.warning("Numerical problem already defined.")
+                    user_input = input(
+                        "Overwrite numerical problem? (y/[n]): ")
 
-        if self.numerical_problems is not None:
-            if not force_overwrite:
-                self.logger.warning("Numerical problem already defined.")
-                user_input = input("Overwrite numerical problem? (y/[n]): ")
-
-                if user_input.lower() != 'y':
-                    self.logger.info("Numerical problem NOT overwritten.")
-                    return
+                    if user_input.lower() != 'y':
+                        self.logger.info("Numerical problem NOT overwritten.")
+                        return
+                else:
+                    self.logger.info("Numerical problem overwritten.")
             else:
-                self.logger.info("Numerical problem overwritten.")
-        else:
-            self.logger.debug(
-                "Defining cvxpy numerical problems based on symbolic problems.")
+                self.logger.debug(
+                    "Defining cvxpy numerical problems based on symbolic problems.")
 
-        if util.find_dict_depth(self.symbolic_problem) == 1:
-            self.numerical_problems = self.generate_problem_dataframe(
-                symbolic_problem=self.symbolic_problem
-            )
-            self.problem_status = None
-
-        elif util.find_dict_depth(self.symbolic_problem) == 2:
-            self.numerical_problems = {
-                problem_key: self.generate_problem_dataframe(
-                    symbolic_problem=problem,
-                    problem_key=problem_key,
+            if util.find_dict_depth(self.symbolic_problem) == 1:
+                self.numerical_problems = self.generate_problem_dataframe(
+                    symbolic_problem=self.symbolic_problem
                 )
-                for problem_key, problem in self.symbolic_problem.items()
-            }
-            self.problem_status = {key: None for key in self.symbolic_problem}
+                self.problem_status = None
 
-        else:
-            msg = "Invalid symbolic problem structure. " \
-                "Check symbolic problem definition."
-            self.logger.error(msg)
-            raise exc.SettingsError(msg)
+            elif util.find_dict_depth(self.symbolic_problem) == 2:
+                self.numerical_problems = {
+                    problem_key: self.generate_problem_dataframe(
+                        symbolic_problem=problem,
+                        problem_key=problem_key,
+                    )
+                    for problem_key, problem in self.symbolic_problem.items()
+                }
+                self.problem_status = {
+                    key: None for key in self.symbolic_problem}
+
+            else:
+                msg = "Invalid symbolic problem structure. " \
+                    "Check symbolic problem definition."
+                self.logger.error(msg)
+                raise exc.SettingsError(msg)
 
     def generate_problem_dataframe(
             self,
@@ -1273,7 +1278,8 @@ class Problem:
 
         for expression in symbolic_expressions:
 
-            self.logger.debug(f"Processing literal expression: '{expression}'")
+            self.logger.debug(
+                f"Processing literal expression | '{expression}'")
             cvxpy_expression = None
 
             vars_symbols_list = self.parse_allowed_symbolic_vars(expression)
@@ -1448,7 +1454,7 @@ class Problem:
             self.logger.info(f"Problem status: '{cvxpy_problem.status}'")
 
             problem_dataframe.at[scenario, status_header] = \
-                    cvxpy_problem.status
+                cvxpy_problem.status
 
     def fetch_problem_status(self) -> None:
         """

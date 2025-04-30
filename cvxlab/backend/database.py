@@ -126,9 +126,6 @@ class Database:
 
         if Path(self.paths['sets_excel_file']).exists():
             if not self.settings['use_existing_data']:
-                self.logger.info(
-                    f"Sets excel file '{sets_file_name}' already exists.")
-
                 erased = self.files.erase_file(
                     dir_path=self.paths['model_dir'],
                     file_name=sets_file_name,
@@ -318,12 +315,12 @@ class Database:
             The unpivoting process transforms the coordinates values from a
                 dictionary format into a DataFrame format.
             The standard values field is added to store the values of the variables.
-        """       
+        """
         self.logger.debug(
-            "Adding sets information to SQLite data tables in " \
+            "Adding sets information to SQLite data tables in "
             f"{Constants.ConfigFiles.SQLITE_DATABASE_FILE}."
         )
-        
+
         with db_handler(self.sqltools):
             for table_key, table in self.index.data.items():
                 table: DataTable
@@ -340,7 +337,7 @@ class Database:
                     key_order=table_headers_list
                 )
 
-                # data table coordinates dataframe are filtered to keep only 
+                # data table coordinates dataframe are filtered to keep only
                 # coordinates defined by the variables whithin the data table
                 dicts_list = []
                 for variable in self.index.variables.values():
@@ -465,8 +462,6 @@ class Database:
             Endogenous and constant tables are skipped as they do not require
                 input files.
         """
-        self.logger.debug("Generation of data input file/s.")
-
         if not Path(self.paths['input_data_dir']).exists():
             self.files.create_dir(self.paths['input_data_dir'])
 

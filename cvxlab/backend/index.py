@@ -679,7 +679,7 @@ class Index:
                         "loading coordinates"
                     self.logger.error(msg)
                     raise exc.MissingDataError(msg)
-                
+
     def load_all_coordinates_to_variables_index(self) -> None:
         """
         Populates the 'coordinates' attribute of each variable in the index with
