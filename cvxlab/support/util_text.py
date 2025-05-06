@@ -1,12 +1,12 @@
 import ast
 import re
-from typing import Any, Iterable
+from typing import Any, Iterable, List, Optional
 
 
 def str_to_be_evaluated(value: str) -> bool:
     """
     Checks if a string should be evaluated (i.e. if it is a dictionary, list or
-    a tuple). Raises ValueError if parentheses, brackets, or braces are not 
+    a tuple). Raises ValueError if parentheses, brackets, or braces are not
     correctly opened/closed.
     """
     if not isinstance(value, str):
@@ -29,11 +29,11 @@ def str_to_be_evaluated(value: str) -> bool:
 
 
 def add_brackets(value: str) -> str | None:
-    """ 
-    If a string represents a list or a dict structure without brackets, 
+    """
+    If a string represents a list or a dict structure without brackets,
     add open/close brackets and return a modified str.
     If a string represents a list or a dict with brackets, no actions.
-    If a string is not representing any of the above, no actions. 
+    If a string is not representing any of the above, no actions.
     If other types are passed, no actions.
     """
     if not isinstance(value, str):
@@ -148,3 +148,40 @@ def process_str(value: Any) -> Any:
     value = evaluate_bool(value)
 
     return value
+
+
+def extract_vars_names_from_expression(
+    expression: str,
+    tokens_to_skip: Optional[List[str]] = [],
+    standard_pattern: str = r"[a-zA-Z_][a-zA-Z0-9_]*",
+) -> List[str]:
+    """
+    Parses and extracts variable names from a symbolic expression, excluding
+    any non-allowed tokens.
+    This method uses regular expressions to identify potential variable names
+    within the given expression and filters out any tokens that are designated
+    as non-allowed, such as mathematical operators or reserved keywords.
+
+    Parameters:
+        expression (str): The symbolic expression from which to extract
+            variable names.
+        non_allowed_tokens (Optional[List[str]]): A list of tokens that should
+            not be considered as variables. Defaults to the keys from
+            allowed_operators.
+        standard_pattern (str): The regex pattern used to identify possible
+            variables in the expression.
+
+    Returns:
+        List[str]: A list of valid variable names extracted from the expression.
+    """
+    if not isinstance(expression, str):
+        raise TypeError(f'Passed expression {expression} must be a string.')
+
+    if not isinstance(tokens_to_skip, list):
+        raise TypeError(
+            f'Passed tokens_to_skip {tokens_to_skip} must be a list.')
+
+    tokens = re.findall(pattern=standard_pattern, string=expression)
+    allowed_vars = [token for token in tokens if token not in tokens_to_skip]
+
+    return allowed_vars

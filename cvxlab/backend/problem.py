@@ -34,7 +34,7 @@ from cvxlab.backend.data_table import DataTable
 from cvxlab.constants import Constants
 from cvxlab.log_exc import exceptions as exc
 from cvxlab.log_exc.logger import Logger
-from cvxlab.support import util
+from cvxlab.support import util, util_text
 from cvxlab.support.file_manager import FileManager
 from cvxlab.support.dotdict import DotDict
 from cvxlab.backend.index import Index, Variable
@@ -106,9 +106,6 @@ class Problem:
         solve_problems: Executes the solution processes for all configured 
             problems and updates their statuses.
     """
-
-    allowed_operators: Dict[str, Any] = \
-        Constants.SymbolicDefinitions.ALLOWED_OPERATORS
 
     def __init__(
             self,
@@ -682,48 +679,6 @@ class Problem:
             f"Validating symbolic problem expressions coherence with variables [TO BE DEVELOPED].")
         pass
 
-    def parse_allowed_symbolic_vars(
-            self,
-            expression: str,
-            non_allowed_tokens: Optional[List[str]] = None,
-            standard_pattern: str = Constants.SymbolicDefinitions.REGEX_PATTERN
-    ) -> List[str]:
-        """
-        Parses and extracts variable names from a symbolic expression, excluding
-        any non-allowed tokens.
-        This method uses regular expressions to identify potential variable names
-        within the given expression and filters out any tokens that are designated
-        as non-allowed, such as mathematical operators or reserved keywords.
-
-        Parameters:
-            expression (str): The symbolic expression from which to extract
-                variable names.
-            non_allowed_tokens (Optional[List[str]]): A list of tokens that should
-                not be considered as variables. Defaults to the keys from
-                allowed_operators.
-            standard_pattern (str): The regex pattern used to identify possible
-                variables in the expression.
-
-        Returns:
-            List[str]: A list of valid variable names extracted from the expression.
-        """
-
-        if non_allowed_tokens is None:
-            non_allowed_tokens = list(self.allowed_operators.keys())
-
-        tokens = re.findall(pattern=standard_pattern, string=expression)
-        allowed_vars = [
-            token
-            for token in tokens
-            if token not in non_allowed_tokens]
-
-        if not allowed_vars:
-            self.logger.warning(
-                "Empty list of allowed variables "
-                f"for expression: {expression}")
-
-        return allowed_vars
-
     def check_variables_attribute_equality(
             self,
             variables_subset: DotDict,
@@ -1270,11 +1225,15 @@ class Problem:
                 specified in the 'problem_filter' and the intra-problem sets.
         """
         numerical_expressions = []
+        allowed_operators = list(
+            Constants.SymbolicDefinitions.ALLOWED_OPERATORS.keys())
 
-        if not symbolic_expressions:
+        if symbolic_expressions is []:
             msg = "No symbolic expressions have passed. Check symbolic problem."
             self.logger.error(msg)
             raise exc.MissingDataError(msg)
+
+        expressions_not_generated = []
 
         for expression in symbolic_expressions:
 
@@ -1282,7 +1241,11 @@ class Problem:
                 f"Processing literal expression | '{expression}'")
             cvxpy_expression = None
 
-            vars_symbols_list = self.parse_allowed_symbolic_vars(expression)
+            vars_symbols_list = util_text.extract_vars_names_from_expression(
+                expression=expression,
+                tokens_to_skip=allowed_operators,
+                standard_pattern=Constants.SymbolicDefinitions.REGEX_PATTERN,
+            )
 
             vars_subset = DotDict({
                 key: variable for key, variable in self.index.variables.items()
@@ -1317,7 +1280,6 @@ class Problem:
 
             # case of one or more intra-problem sets
             else:
-
                 # check for common filtered intra-problem set coordinates
                 sets_intra_problem_coords = self.find_common_vars_coords(
                     variables_subset=vars_subset,
@@ -1364,10 +1326,17 @@ class Problem:
                     numerical_expressions.append(cvxpy_expression)
 
             if cvxpy_expression is None:
-                msg = "CVXPY expression not generated for " \
-                    f"expression: '{expression}'"
-                self.logger.error(msg)
-                raise exc.NumericalProblemError(msg)
+                expressions_not_generated.append(expression)
+
+        if expressions_not_generated != []:
+            self.logger.error(
+                f"'{len(expressions_not_generated)}' CVXPY expressions not "
+                "generated. Expressions: "
+            )
+            for expression in expressions_not_generated:
+                self.logger.error(f"{expression}")
+            raise exc.NumericalProblemError(
+                f"Failed to generate '{len(expressions_not_generated)}' CVXPY expressions.")
 
         return numerical_expressions
 
