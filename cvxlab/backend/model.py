@@ -657,10 +657,12 @@ class Model:
             numerical_tolerance = \
                 Constants.NumericalSettings.TOLERANCE_TESTS_RESULTS_CHECK
 
-        self.core.check_results_as_expected(
-            values_relative_diff_tolerance=numerical_tolerance)
-
-        self.logger.info("Model results are as expected.")
+        with self.logger.log_timing(
+            message=f"Check model results...",
+            level='info',
+        ):
+            self.core.check_results_as_expected(
+                values_relative_diff_tolerance=numerical_tolerance)
 
     def variable(
             self,
@@ -697,15 +699,3 @@ class Model:
             Optional[pd.DataFrame]: The data for the specified set.
         """
         return self.core.index.fetch_set_data(set_key=name)
-
-    def erase_model(self) -> None:
-        """
-        Erases the model directory.
-        This method deletes the directory containing all model files.
-
-        Returns:
-            None
-        """
-        self.logger.warning(f"Erasing model {self.settings['model_name']}.")
-
-        self.files.erase_dir(self.paths['model_dir'])
