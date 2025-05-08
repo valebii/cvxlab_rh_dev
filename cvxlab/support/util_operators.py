@@ -103,8 +103,15 @@ def matrix_inverse(matrix: cp.Parameter | cp.Expression) -> cp.Parameter:
             "Type expected: numpy array or scipy sparse array. "
             f"Passed type: {type(matrix_val)}.")
 
-    if len(matrix_val.shape) != 2 and matrix_val.shape[0] != matrix_val.shape[1]:
-        raise ValueError("Passed item is not a square matrix.")
+    if len(matrix_val.shape) != 2:
+        raise ValueError(
+            "Passed item is not a 2-dimensional array: passed shape: "
+            f"{matrix_val.shape}.")
+
+    if matrix_val.shape[0] != matrix_val.shape[1]:
+        raise ValueError(
+            "Passed item is not a square matrix: passed shape: "
+            f"{matrix_val.shape}.")
 
     try:
         if issparse(matrix_val):
