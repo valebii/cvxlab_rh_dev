@@ -195,8 +195,11 @@ class Constants:
         """Allowed constants and operators for symbolic problem definitions."""
         ALLOWED_DIMENSIONS = ['rows', 'cols', 'intra', 'inter']
         ALLOWED_VARIABLES_TYPES = ['constant', 'exogenous', 'endogenous']
-        REGEX_PATTERN = r'\b[a-zA-Z_][a-zA-Z0-9_]*\b'
         NONE_SYMBOLS = [None, 'nan', 'None', 'null', '', [], {}]
+        TOKEN_PATTERN = {
+            "first_char": r"[a-zA-Z_]",
+            "other_chars": r"[a-zA-Z0-9_]*",
+        }
 
         ALLOWED_CONSTANTS = {
             'sum_vector': (np.ones, {}),
@@ -206,7 +209,7 @@ class Constants:
             'arange_0': (util_constants.arange, {'start_from': 0}),
             'lower_triangular': (util_constants.tril, {}),
         }
-        
+
         ALLOWED_OPERATORS = {
             '+': '+',
             '-': '-',

@@ -1,19 +1,9 @@
-import pytest
+from tests.unit.conftest import run_test_cases
 from cvxlab.support.util_text import *
 
 
-def run_test_cases(func, test_cases):
-    for text, expected, error in test_cases:
-        if error:
-            with pytest.raises(error):
-                func(text)
-        else:
-            assert func(text) == expected
-
-
 def test_str_to_be_evaluated():
-
-    texts_list = [
+    test_cases = [
         # expressions to be processed
         ("[a]", True, None),
         ("['a']", True, None),
@@ -32,13 +22,11 @@ def test_str_to_be_evaluated():
         ("{'a': 1, 'b': ['ciao'}", None, ValueError),
         ("{'a': 1, 'b': ['ciao', (1,]}", None, ValueError),
     ]
-
-    run_test_cases(str_to_be_evaluated, texts_list)
+    run_test_cases(str_to_be_evaluated, test_cases)
 
 
 def test_add_brackets():
-
-    texts_list = [
+    test_cases = [
         # non allowed types
         (True, None, TypeError),
         (2, None, TypeError),
@@ -63,13 +51,11 @@ def test_add_brackets():
         ('{a: 1, b: [ciao}', None, ValueError),
         ('{a: 1, b: [ciao, (1,]}', None, ValueError),
     ]
-
-    run_test_cases(add_brackets, texts_list)
+    run_test_cases(add_brackets, test_cases)
 
 
 def test_add_quotes():
-
-    texts_list = [
+    test_cases = [
         # non allowed types
         ([1, 2, 3], None, TypeError),
         # strings representing values to be quoted
@@ -83,26 +69,22 @@ def test_add_quotes():
         # strings including numbers:
         ("[a, 1, 4.3]", "['a', 1, 4.3]", None),
     ]
-
-    run_test_cases(add_quotes, texts_list)
+    run_test_cases(add_quotes, test_cases)
 
 
 def test_evaluate_bool():
-
-    texts_list = [
+    test_cases = [
         (True, True, None),
         ('True', True, None),
         ('FALSE', False, None),
         (['a', 'True'], ['a', True], None),
         ({'a': ['b', 'True']}, {'a': ['b', True]}, None),
     ]
-
-    run_test_cases(evaluate_bool, texts_list)
+    run_test_cases(evaluate_bool, test_cases)
 
 
 def test_process_str():
-
-    texts_list = [
+    test_cases = [
         # Any type different than str
         (True, True, None),
         ([1, 2], [1, 2], None),
@@ -123,5 +105,26 @@ def test_process_str():
         # case of keys as numbers
         ('1: a, 2: b', {1: 'a', 2: 'b'}, None),
     ]
+    run_test_cases(process_str, test_cases)
 
-    run_test_cases(process_str, texts_list)
+
+def test_extract_tokens_from_expression():
+    expr_list = [
+        # allowed types with standard pattern
+        ("a + b_1 - c2 * d / e", ["a", "b_1", "c2", "d", "e"], None),
+        ("a+b_1-c2*d/e", ["a", "b_1", "c2", "d", "e"], None),
+        ("", [], None),
+        # skipping tokens
+        ("a + b - cb", ["a", "cb"], None, {"tokens_to_skip": ["b"]}),
+        ("bba + bb - cbb", ["bba", "cbb"], None, {"tokens_to_skip": ["bb"]}),
+        # alternative first char pattern
+        ("ab + CdD_", ["ab"], None, {"first_char_pattern": r"[a-z]"}),
+        # alternative other char pattern
+        ("a0 + cC", ["cC"], None, {"other_chars_pattern": r"[a-zA-Z]*"}),
+        ("a01 _A01", [], None, {"other_chars_pattern": r"[a-zA-Z]*"}),
+        # invalid expressions
+        (123, None, TypeError),
+        ({'a': 10, 'b': 'text'}, None, TypeError),
+    ]
+
+    run_test_cases(extract_tokens_from_expression, expr_list)

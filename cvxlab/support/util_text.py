@@ -150,10 +150,11 @@ def process_str(value: Any) -> Any:
     return value
 
 
-def extract_vars_names_from_expression(
+def extract_tokens_from_expression(
     expression: str,
+    first_char_pattern: str = r"[a-zA-Z_]",
+    other_chars_pattern: str = r"[a-zA-Z0-9_]*",
     tokens_to_skip: Optional[List[str]] = [],
-    standard_pattern: str = r"[a-zA-Z_][a-zA-Z0-9_]*",
 ) -> List[str]:
     """
     Parses and extracts variable names from a symbolic expression, excluding
@@ -181,7 +182,11 @@ def extract_vars_names_from_expression(
         raise TypeError(
             f'Passed tokens_to_skip {tokens_to_skip} must be a list.')
 
-    tokens = re.findall(pattern=standard_pattern, string=expression)
-    allowed_vars = [token for token in tokens if token not in tokens_to_skip]
+    # wrapping into \b ensures that only whole tokens are matched, and not
+    # substrings inside longer words
+    full_pattern = rf"\b{first_char_pattern}{other_chars_pattern}\b"
 
-    return allowed_vars
+    tokens = re.findall(pattern=full_pattern, string=expression)
+    allowed_tokens = [token for token in tokens if token not in tokens_to_skip]
+
+    return allowed_tokens
