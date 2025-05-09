@@ -1227,6 +1227,7 @@ class Problem:
         numerical_expressions = []
         allowed_operators = list(
             Constants.SymbolicDefinitions.ALLOWED_OPERATORS.keys())
+        token_pattern = Constants.SymbolicDefinitions.TOKEN_PATTERN
 
         if symbolic_expressions is []:
             msg = "No symbolic expressions have passed. Check symbolic problem."
@@ -1241,10 +1242,11 @@ class Problem:
                 f"Processing literal expression | '{expression}'")
             cvxpy_expression = None
 
-            vars_symbols_list = util_text.extract_vars_names_from_expression(
+            vars_symbols_list = util_text.extract_tokens_from_expression(
                 expression=expression,
                 tokens_to_skip=allowed_operators,
-                standard_pattern=Constants.SymbolicDefinitions.REGEX_PATTERN,
+                first_char_pattern=token_pattern['first_char'],
+                other_chars_pattern=token_pattern['other_chars'],
             )
 
             vars_subset = DotDict({
