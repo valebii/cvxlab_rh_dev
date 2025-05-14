@@ -600,9 +600,7 @@ class Problem:
         if self.symbolic_problem:
             if not force_overwrite:
                 self.logger.warning("Symbolic problem already loaded.")
-                user_input = input("Update symbolic problem? (y/[n]): ")
-
-                if user_input.lower() != 'y':
+                if not util.get_user_confirmation("Update symbolic problem?"):
                     self.logger.info("Symbolic problem NOT updated.")
                     return
             else:
@@ -845,10 +843,7 @@ class Problem:
             if self.numerical_problems is not None:
                 if not force_overwrite:
                     self.logger.warning("Numerical problem already defined.")
-                    user_input = input(
-                        "Overwrite numerical problem? (y/[n]): ")
-
-                    if user_input.lower() != 'y':
+                    if not util.get_user_confirmation("Overwrite numerical problem?"):
                         self.logger.info("Numerical problem NOT overwritten.")
                         return
                 else:
@@ -1398,7 +1393,7 @@ class Problem:
         else:
             util.items_in_list(
                 items=scenarios_idx,
-                list_to_check=list(self.index.scenarios_info.index),
+                control_list=list(self.index.scenarios_info.index),
             )
 
         for scenario in scenarios_idx:

@@ -604,8 +604,7 @@ class Index:
         else:
             self.logger.warning(
                 "At least one Set is already defined in Index.")
-            user_input = input("Overwrite Sets in Index? (y/[n]): ")
-            if user_input.lower() != 'y':
+            if not util.get_user_confirmation("Overwrite Sets in Index?"):
                 self.logger.info("Sets not overwritten in Index.")
                 return
             self.logger.info("Overwriting Sets in Index.")

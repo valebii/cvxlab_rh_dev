@@ -105,13 +105,8 @@ class FileManager:
 
         if os.path.exists(dir_path) and not force_overwrite:
             self.logger.warning(f"Directory '{dir_name}' already exists.")
-            response = input(
-                'Overwrite directory 'f"'{dir_name}'(y/[n]): "
-            ).lower()
-
-            if response != 'y':
-                self.logger.debug(
-                    f"Directory '{dir_name}' not overwritten.")
+            if not util.get_user_confirmation(f"Overwrite directory '{dir_name}'?"):
+                self.logger.debug(f"Directory '{dir_name}' not overwritten.")
                 return
 
         if os.path.exists(dir_path) and force_overwrite:
@@ -141,12 +136,9 @@ class FileManager:
 
         if os.path.exists(dir_path):
             if not force_erase:
-                response = input(
-                    'Do you really want to erase the directory '
-                    f"'{dir_name}'(y/[n]): "
-                ).lower()
-
-                if response != 'y':
+                if not util.get_user_confirmation(
+                    f"Do you really want to erase the directory '{dir_name}'?"
+                ):
                     self.logger.debug(
                         f"Directory '{dir_name}' and its content not erased.")
                     return False
@@ -231,7 +223,7 @@ class FileManager:
             return False
 
         if confirm and not force_erase:
-            if not util.confirm_action(
+            if not util.get_user_confirmation(
                     f"Do you really want to erase file '{file_name}'? "
             ):
                 self.logger.debug(f"File '{file_name}' not erased.")
@@ -317,8 +309,7 @@ class FileManager:
 
         if destination_file_path.exists() and not force_overwrite:
             self.logger.warning(f"'{file_name}' already exists.")
-            user_input = input(f"Overwrite '{file_name}'? (y/[n]): ")
-            if user_input.lower() != 'y':
+            if not util.get_user_confirmation(f"Overwrite '{file_name}'?"):
                 self.logger.debug(f"'{file_name}' NOT overwritten.")
                 return
 
@@ -373,10 +364,9 @@ class FileManager:
             dir_destination = os.path.basename(path_destination)
 
             self.logger.warning(f"Directory '{dir_destination}' not empty.")
-
-            user_input = input(
-                f"Overwrite content of '{dir_destination}'? (y/[n]): ")
-            if user_input.lower() != 'y':
+            if not util.get_user_confirmation(
+                f"Overwrite content of '{dir_destination}'?"
+            ):
                 self.logger.debug(f"'{dir_destination}' NOT overwritten.")
                 return
 
@@ -501,12 +491,9 @@ class FileManager:
         if os.path.exists(excel_file_path):
             self.logger.warning(
                 f"Excel file '{excel_file_name}' already exists.")
-            response = input(
-                'Do you really want to overwrite the file '
-                f"'{excel_file_name}'(y/[n]): "
-            ).lower()
-
-            if response == 'y':
+            if not util.get_user_confirmation(
+                f"Do you really want to overwrite the file '{excel_file_name}'?"
+            ):
                 write_excel(excel_file_path, dict_name)
             else:
                 self.logger.debug(
@@ -548,11 +535,11 @@ class FileManager:
 
         if not force_overwrite:
             if excel_file_path.exists():
-                confirm = input(
-                    f"File {excel_filename} already exists. \
-                        Do you want to overwrite it? (y/[n])"
-                )
-                if confirm.lower() != 'y':
+                self.logger.warning(
+                    f"Excel file '{excel_filename}' already exists.")
+                if not util.get_user_confirmation(
+                    f"Do you want to overwrite  '{excel_filename}'?"
+                ):
                     self.logger.warning(
                         f"File '{excel_filename}' not overwritten.")
                     return

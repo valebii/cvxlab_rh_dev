@@ -91,9 +91,9 @@ def _generate_yaml_template(
     file_path = model_dir_path / file_name
 
     if file_path.exists():
-        user_input = input(
-            f"File '{file_name}' already exists. Overwrite? (y/[n]): ")
-        if user_input.lower() != 'y':
+        if not util.get_user_confirmation(
+            f"File '{file_name}' already exists. Overwrite?"
+        ):
             return
 
     def _convert_to_yaml(
@@ -214,11 +214,10 @@ def transfer_setup_info_xlsx(
             ]
 
         # confirmation
-        confirm = input(
+        if not util.get_user_confirmation(
             f"File {destination_file_name} already exists. \
-                Do you want to overwrite it? (y/[n])"
-        )
-        if confirm.lower() != 'y':
+            Do you want to overwrite it?"
+        ):
             files.logger.warning(
                 f"File '{destination_file_name}' not overwritten.")
             continue
