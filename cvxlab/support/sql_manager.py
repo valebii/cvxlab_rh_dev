@@ -18,6 +18,7 @@ import contextlib
 import sqlite3
 
 import pandas as pd
+from pytest import skip
 
 from cvxlab.log_exc import exceptions as exc
 from cvxlab.log_exc.logger import Logger
@@ -396,13 +397,10 @@ class SQLManager:
                 foreign key constraints. Default is None.
         """
         if table_name in self.get_existing_tables_names:
-            self.logger.info(f"SQLite table '{table_name}' already exists.")
-
-            confirm = input(
-                f"SQLite table '{table_name}' already exists. "
-                "Overwrite? (y/[n])"
-            )
-            if confirm.lower() != 'y':
+            self.logger.warning(f"SQLite table '{table_name}' already exists.")
+            if not util.get_user_confirmation(
+                f"Overwrite SQLite table '{table_name}'?"
+            ):
                 self.logger.info(
                     f"SQLlite table '{table_name}' NOT overwritten.")
                 return
@@ -539,12 +537,11 @@ class SQLManager:
         num_entries = self.count_table_data_entries(table_name)
 
         if num_entries > 0 and not force_operation:
-            confirm = input(
-                f"SQLite table '{table_name}' already has {num_entries} rows. Delete all "
-                f"{'entries' if column_name is None else f'entries in column {column_name}'}? "
-                "(y/[n])")
-
-            if confirm.lower() != 'y':
+            self.logger.warning(
+                f"SQLite table '{table_name}' already has {num_entries} rows.")
+            if not util.get_user_confirmation(
+                f"Delete all {'entries' if column_name is None else f'entries in column {column_name}'} from {table_name}?"
+            ):
                 self.logger.debug(
                     f"SQLite table '{table_name}' - NOT overwritten.")
                 return False
@@ -695,8 +692,14 @@ class SQLManager:
             raise exc.MissingDataError(msg)
 
         # check if table is already up to date
+        if id_field in dataframe.columns or id_field in df_existing.columns:
+            skip_columns = [id_field]
+        else:
+            skip_columns = []
+
         if util.check_dataframes_equality(
             df_list=[df_existing, dataframe],
+            skip_columns=skip_columns,
         ):
             if not suppress_warnings:
                 self.logger.warning(
@@ -828,11 +831,8 @@ class SQLManager:
         if_sheet_exists = 'replace' if mode == 'a' else None
 
         if excel_file_path.exists() and if_sheet_exists != 'replace':
-            confirm = input(
-                f"File {excel_filename} already exists. \
-                    Do you want to overwrite it? (y/[n])"
-            )
-            if confirm.lower() != 'y':
+            self.logger.warning(f"File {excel_filename} already exists.")
+            if not util.get_user_confirmation(f"Overwrite file {excel_filename}?"):
                 self.logger.warning(
                     f"File '{excel_filename}' not overwritten.")
                 return
