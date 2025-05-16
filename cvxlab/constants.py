@@ -17,6 +17,7 @@ Classes:
         categories for clarity and ease of access. Supports direct attribute
         access of constants using '__getattr__' method.
 """
+from typing import Union
 import cvxpy as cp
 import numpy as np
 
@@ -70,6 +71,7 @@ class Constants:
         """Standard headers and field names."""
         NAME = 'name'
         FILTERS = 'filters'
+        AGGREGATIONS = 'aggregations'
         CVXPY_VAR = 'variable'
         SUB_PROBLEM_KEY = 'sub_problem_key'
         FILTER_DICT_KEY = 'filter'
@@ -90,6 +92,7 @@ class Constants:
 
         SET_TABLE_NAME_PREFIX = '_set_'
         COLUMN_NAME_SUFFIX = '_Name'
+        COLUMN_AGGREGATION_SUFFIX = '_agg_'
 
     class DefaultStructures:
         """Default structures for data validation and for generating templates."""
@@ -108,7 +111,9 @@ class Constants:
                 'copy_from': (OPTIONAL, str),
                 # dictionary with keys as the filters name and values as the
                 # list of filter values
-                'filters': (OPTIONAL, {ANY: list})
+                'filters': (OPTIONAL, {ANY: list}),
+                # list of set aggregations (useful for visualization)
+                'aggregations': (OPTIONAL, Union[int, str, list]),
             }
         )
 
