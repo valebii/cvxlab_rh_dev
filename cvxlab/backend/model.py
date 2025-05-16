@@ -232,10 +232,10 @@ class Model:
             dir_path=self.paths['model_dir'],
             files_names_list=setup_files,
         ):
-            if not self.settings['use_existing_data']:
-                self.logger.warning(
-                    f"Model directory and setup '{files_type}' file/s already "
-                    "exist.")
+            self.logger.debug(
+                f"Model directory and setup '{files_type}' file/s already "
+                "exist.")
+
         else:
             msg = f"Model directory or setup '{files_type}' file/s missing."
             self.logger.error(msg)
