@@ -568,7 +568,7 @@ class SQLManager:
     ) -> None:
         """
         Validates that the headers of a DataFrame match the schema of a specified
-        SQLite table.
+        SQLite table, ignoring columns order.
         This method ensures that the DataFrame columns align with the table's
         field names, optionally excluding the primary key field from the validation.
 
@@ -589,10 +589,11 @@ class SQLManager:
         if not check_id_field and extra_header == {field_id}:
             return
 
-        if dataframe.columns.tolist() != table_fields:
-            mismatched_headers = set(dataframe.columns) - set(table_fields)
-            msg = f"Passed DataFrame and SQLite table '{table_name}' headers " \
-                f"mismatch. Mismatched headers: '{mismatched_headers}'"
+        mismatched_headers = set(dataframe.columns) - set(table_fields)
+
+        if mismatched_headers:
+            msg = f"SQLite table '{table_name}' | headers mismatch with " \
+                f"passed dataframe. Mismatched headers: '{mismatched_headers}'"
             self.logger.error(msg)
             raise ValueError(msg)
 
@@ -663,7 +664,6 @@ class SQLManager:
                 messages. Defaults to False.
         """
         self.check_table_exists(table_name)
-        self.validate_table_dataframe_headers(table_name, dataframe)
 
         if dataframe.empty:
             msg = "Passed DataFrame is empty. No data inserted into table."
