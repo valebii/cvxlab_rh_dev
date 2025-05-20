@@ -16,7 +16,6 @@ required for successful model operation, providing robust tools for data
 manipulation and validation.
 """
 
-import pprint as pp
 import itertools as it
 import numpy as np
 import pandas as pd
@@ -26,25 +25,6 @@ from copy import deepcopy
 from typing import Dict, List, Any, Literal, Optional, Tuple
 
 from cvxlab.support import util_text
-
-
-def prettify(item: dict) -> None:
-    """
-    Prints a dictionary in a human-readable format.
-
-    Args:
-        item (dict): The dictionary to be printed.
-
-    Raises:
-        TypeError: If 'item' is not a dictionary.
-
-    Returns:
-        None: This function only prints the dictionary to the console and 
-            does not return any value.
-    """
-    if not isinstance(item, dict):
-        raise TypeError('Function argument should be a dictionary.')
-    print(pp.pformat(item))
 
 
 def validate_selection(
@@ -61,13 +41,13 @@ def validate_selection(
         ignore_case (bool): If True, ignores the case of the selection. 
             Works only with string selections. Default is False.
 
+    Returns:
+        None: This function only performs validation and does not return any value.
+
     Raises:
         ValueError: If the selection is not found within the list of valid selections.
         ValueError: If no valid selections are available.
         ValueError: If ignore_case is True but the selections are not strings.
-
-    Returns:
-        None: This function only performs validation and does not return any value.
     """
     if not valid_selections:
         raise ValueError("No valid selections are available.")
@@ -88,22 +68,44 @@ def validate_selection(
 
 def items_in_list(
         items: List,
-        list_to_check: List,
+        control_list: Iterable,
 ) -> bool:
     """
-    Checks if all items in a list are present in another list.
+    Checks if all items in a list are present in a control list.
 
     Args:
         items (List): The list of items to check.
-        list_to_check (List): The list to check against.
+        control_list (Iterable): The iterable to check against.
 
     Returns:
         bool: True if all items are present in the list to check, False otherwise.
+
+    Raises:
+        TypeError: If either 'items' or 'list_to_check' is not iterable.
+        ValueError: If 'list_to_check' is empty.
     """
-    return all(item in list_to_check for item in items)
+    if not isinstance(items, list):
+        raise TypeError(
+            "'items' must be of type list. Passed "
+            f"type: {type(items).__name__}; "
+        )
+    if not isinstance(control_list, Iterable):
+        raise TypeError(
+            "'list_to_check' must be iterable. Passed "
+            f"type: {type(control_list).__name__}; "
+        )
+
+    control_set = set(control_list)
+    if not control_set:
+        raise ValueError("The control_list must not be empty.")
+
+    if not items:
+        return False
+
+    return all(item in control_list for item in items)
 
 
-def confirm_action(message: str) -> bool:
+def get_user_confirmation(message: str) -> bool:
     """
     Prompts the user to confirm an action via command line input.
 
@@ -126,11 +128,22 @@ def find_dict_depth(item: dict) -> int:
 
     Returns:
         int: The maximum depth of the dictionary.
+
+    Raises:
+        TypeError: If the passed argument is not a dictionary.
     """
-    if not isinstance(item, dict) or not item:
+    if not isinstance(item, dict):
+        raise TypeError(
+            "Passed argument must be a dictionary. "
+            f"{type(item).__name__} was passed instead.")
+
+    if not item:
         return 0
 
-    return 1 + max(find_dict_depth(v) for k, v in item.items())
+    return 1 + max(
+        find_dict_depth(v) if isinstance(v, dict) else 0
+        for v in item.values()
+    )
 
 
 def generate_dict_with_none_values(item: dict) -> dict:
@@ -143,9 +156,16 @@ def generate_dict_with_none_values(item: dict) -> dict:
 
     Returns:
         dict: A new dictionary with the same keys but all values set to None.
-    """
-    dict_keys = {}
 
+    Raises:
+        TypeError: If the passed argument is not a dictionary.
+    """
+    if not isinstance(item, dict):
+        raise TypeError(
+            "Passed argument must be a dictionary. "
+            f"{type(item).__name__} was passed instead.")
+
+    dict_keys = {}
     for key, value in item.items():
         if isinstance(value, dict):
             dict_keys[key] = generate_dict_with_none_values(value)
@@ -171,10 +191,25 @@ def pivot_dict(
     Returns:
         Dict: A nested dictionary with keys from the original dictionary and 
             values as dictionaries.
+
+    Raises:
+        TypeError: If 'data_dict' is not a dictionary or 'keys_order' is not 
+            a list.
+        ValueError: If 'keys_order' does not correspond to the keys of 
+            'data_dict'.
     """
 
     if not isinstance(data_dict, dict):
-        raise TypeError("Argument 'data_dict' must be a dictionary.")
+        raise TypeError(
+            "Argument 'data_dict' must be a dictionary. "
+            f"{type(data_dict).__name__} was passed instead."
+        )
+
+    if keys_order is not None and not isinstance(keys_order, list):
+        raise TypeError(
+            "Argument 'keys_order' must be a list or None. "
+            f"{type(keys_order).__name__} was passed instead."
+        )
 
     def pivot_recursive(keys, values):
         if not keys:
@@ -229,9 +264,15 @@ def dict_cartesian_product(
             is not a boolean.
     """
     if not isinstance(data_dict, dict):
-        raise TypeError("Argument 'data_dict' must be a dictionary.")
+        raise TypeError(
+            "Argument 'data_dict' must be a dictionary. "
+            f"{type(data_dict).__name__} was passed instead."
+        )
     if not isinstance(include_dict_keys, bool):
-        raise TypeError("Argument 'include_dict_keys' must be a boolean.")
+        raise TypeError(
+            "Argument 'include_dict_keys' must be a boolean. "
+            f"{type(include_dict_keys).__name__} was passed instead."
+        )
 
     if not data_dict:
         return []
@@ -263,7 +304,25 @@ def unpivot_dict_to_dataframe(
     Returns:
         pd.DataFrame: A DataFrame resulting from the cartesian product of 
             dictionary values.
+
+    Raises:
+        TypeError: If 'data_dict' is not a dictionary or 'key_order' is not 
+            a list.
+        ValueError: If 'key_order' does not correspond to the keys of 
+            'data_dict'.
     """
+    if not isinstance(data_dict, dict):
+        raise TypeError(
+            "Argument 'data_dict' must be a dictionary. "
+            f"{type(data_dict).__name__} was passed instead."
+        )
+
+    if key_order is not None and not isinstance(key_order, list):
+        raise TypeError(
+            "Argument 'key_order' must be a list or None. "
+            f"{type(key_order).__name__} was passed instead."
+        )
+
     if key_order and all([isinstance(item, List) for item in key_order]):
         key_order = [item[0] for item in key_order]
 
@@ -322,6 +381,9 @@ def add_item_to_dict(
     if not all(isinstance(arg, dict) for arg in [dictionary, item]):
         raise TypeError("Passed argument/s not of 'dict' type.")
 
+    if not isinstance(position, int):
+        raise TypeError("Passed position argument must be of 'int' type.")
+
     if not -len(dictionary) <= position <= len(dictionary):
         raise ValueError(
             "Invalid position. Position must be "
@@ -329,7 +391,10 @@ def add_item_to_dict(
 
     items = list(dictionary.items())
     item_list = list(item.items())
-    items.insert(position, *item_list)
+
+    for i in item_list:
+        items.insert(position, i)
+
     return dict(items)
 
 
