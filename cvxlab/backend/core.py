@@ -728,9 +728,7 @@ class Core:
 
             if not force_overwrite:
                 self.logger.warning("Numeric problems already solved.")
-                user_input = input("Solve again numeric problems? (y/[n]): ")
-
-                if user_input.lower() != 'y':
+                if not util.get_user_confirmation("Solve again numeric problems?"):
                     self.logger.warning("Numeric problem NOT solved.")
                     return
 

@@ -79,7 +79,7 @@ class SetTable:
 
         self.fetch_names(key_name)
         self.fetch_attributes(set_info)
-        self.fetch_headers_and_filters()
+        self.fetch_tables_headers()
 
     @property
     def set_name_header(self) -> str | None:
@@ -174,10 +174,14 @@ class SetTable:
         """
         col_name_suffix = Constants.Labels.COLUMN_NAME_SUFFIX
         filters_header = Constants.Labels.FILTERS
+        aggregations_header = Constants.Labels.AGGREGATIONS
+        aggregations_suffix = Constants.Labels.COLUMN_AGGREGATION_SUFFIX
         name_header = Constants.Labels.NAME
 
+        # set all attributes except filters and aggregations
         for key, value in set_info.items():
-            if key != filters_header and value is not None:
+            if key not in (filters_header, aggregations_header) and \
+                    value is not None:
                 setattr(self, key, value)
 
         # column with name of set entries
@@ -185,17 +189,28 @@ class SetTable:
 
         # column with filter values
         if filters_header in set_info:
+            filters_info = set_info[filters_header] or {}
             self.table_structure[filters_header] = {}
-            filters_info: dict = set_info[filters_header]
 
-            if filters_info:
-                for filter_key, filter_values in filters_info.items():
-                    self.table_structure[filters_header][filter_key] = {
-                        'header': self.name + '_' + filter_key,
-                        'values': filter_values
-                    }
+            for filter_key, filter_values in filters_info.items():
+                self.table_structure[filters_header][filter_key] = {
+                    'header': f"{self.name}_{filter_key}",
+                    'values': filter_values
+                }
 
-    def fetch_headers_and_filters(self) -> None:
+        # column with aggregations categories (always converted to str)
+        if aggregations_header in set_info:
+            agg_items = set_info[aggregations_header]
+            if not isinstance(agg_items, list):
+                agg_items = [agg_items]
+            self.table_structure[aggregations_header] = {}
+
+            for item in agg_items:
+                self.table_structure[aggregations_header][item] = {
+                    'header': f"{self.name}{aggregations_suffix}{item}",
+                }
+
+    def fetch_tables_headers(self) -> None:
         """
         Initializes the table headers and filters based on the predefined table 
         structure.
@@ -207,10 +222,13 @@ class SetTable:
         """
         name_key = Constants.Labels.NAME
         filters_key = Constants.Labels.FILTERS
+        aggregations_key = Constants.Labels.AGGREGATIONS
         generic_field_type = Constants.Labels.GENERIC_FIELD_TYPE
 
-        # Fetching filters
+        # Fetching filters and aggregations
         self.table_filters = self.table_structure.get(filters_key, None)
+        self.table_aggregations = self.table_structure.get(
+            aggregations_key, None)
 
         # Fetching table headers
         name_header = self.table_structure.get(name_key, None)
@@ -219,9 +237,18 @@ class SetTable:
             for key, value in self.table_structure.get(filters_key, {}).items()
         }
 
+        aggregations_headers = {
+            'aggregation_' + str(key): value['header']
+            for key, value in self.table_structure.get(aggregations_key, {}).items()
+        }
+
         self.table_headers = {
             key: [value, generic_field_type]
-            for key, value in {name_key: name_header, **filters_headers}.items()
+            for key, value in {
+                name_key: name_header,
+                **filters_headers,
+                **aggregations_headers,
+            }.items()
         }
 
     def __repr__(self) -> str:
